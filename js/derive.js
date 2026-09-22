@@ -8,97 +8,230 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  function toNum(v) {
-    const n = parseFloat(v);
+  function num(v) {
+    const n = parseFloat(String(v).replace(/[^\d.-]/g, ""));
     return isNaN(n) ? 0 : n;
   }
 
-  function deriveDashboard(input) {
-    const students = input.students || [];
-    const payments = input.payments || [];
-    const books = input.books || [];
-    const config = input.config || {};
+  function formatAmount(value, currency) {
+    const c = currency || "GH₵";
+    return c + " " + Math.round(value).toLocaleString("en-US");
+  }
 
-    const withPaid = students.map((s, i) => ({
-      student: s,
-      paid: toNum(s.books_paid),
-      total: toNum(s.books_total)
+  function todayISO() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  function normalizeStudents(rows) {
+    return rows.map(r => ({
+      studentId: r.student_id,
+      name: r.name,
+      className: r.class,
+      gender: r.gender,
+      academicYear: r.academic_year,
+      booksFee: num(r.books_fee),
+      booksPaid: num(r.books_paid),
+      booksTotal: num(r.books_total),
+      status: r.status
     }));
+  }
 
-    const studentsReady = withPaid.filter(o => o.paid > 0 && o.paid >= o.total).length;
-    const studentsWaiting = withPaid.filter(o => o.paid > 0 && o.paid < o.total).length;
-    const studentsUncovered = withPaid.filter(o => o.paid <= 0).length;
-
-    const collections = payments.map(p => ({
-      amount: toNum(p.amount),
-      method: String(p.method || "unknown").trim(),
-      date: String(p.date || "").trim()
+  function normalizePayments(rows) {
+    return rows.map(r => ({
+      paymentId: r.payment_id,
+      studentId: r.student_id,
+      studentName: r.student_name,
+      className: r.class,
+      amount: num(r.amount),
+      method: r.method,
+      date: r.date,
+      status: r.status
     }));
+  }
 
-    const totalCollected = collections.reduce((sum, c) => sum + c.amount, 0);
-
-    const methodBreakdown = {};
-    for (const c of collections) methodBreakdown[c.method] = (methodBreakdown[c.method] || 0) + c.amount;
-
-    const uniquePayers = new Set(payments.map(p => String(p.student_id || ""))).size;
-    const daysActive = new Set(collections.map(c => c.date).filter(Boolean)).size;
-    const avgPerDay = daysActive > 0 ? totalCollected / daysActive : 0;
-
-    const daily = {};
-    for (const c of collections) if (c.date) daily[c.date] = (daily[c.date] || 0) + c.amount;
-
-    // dailyByDay: continuous axis of the current calendar month, zero-filled,
-    // so the chart can render a full month without gaps.
-    const dailyByDay = {};
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let day = 1; day <= daysInMonth; day++) {
-      const key = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-      dailyByDay[key] = daily[key] || 0;
-    }
-
-    const lowStock = books
-      .filter(b => toNum(b.stock_qty) <= toNum(b.low_stock_threshold))
-      .map(b => ({ book_id: String(b.book_id || ""), stock: toNum(b.stock_qty) }));
-
-    const dailyTarget = toNum(config.daily_payment_target);
-    // Current-day stats use the UTC date so results stay deterministic
-    // across timezones (fixture dates are in the past relative to run date).
-    const todayKey = now.toISOString().slice(0, 10);
-    const collectedToday = daily[todayKey] || 0;
-    // Expected so far today equals the daily target only once at least one
-    // payment has been recorded today (0 otherwise).
-    const expectedByNow = collectedToday > 0 ? dailyTarget : 0;
-
-    const activityLogged = (input.activity || []).map(a => ({
-      type: String(a.type || "").trim(),
-      description: String(a.description || "").trim(),
-      amount: toNum(a.amount),
-      created_at: String(a.created_at || "").trim()
+  function normalizeActivity(rows) {
+    return rows.map(r => ({
+      activityId: r.activity_id,
+      type: r.type,
+      description: r.description,
+      amount: num(r.amount),
+      createdAt: r.created_at
     }));
+  }
 
+  function normalizeBooks(rows) {
+    return rows.map(r => ({
+      bookId: r.book_id,
+      publisher: r.publisher,
+      subject: r.subject,
+      category: r.category,
+      price: num(r.price),
+      stockQty: num(r.stock_qty),
+      lowStockThreshold: num(r.low_stock_threshold)
+    }));
+  }
+
+  function normalizeConfig(rows) {
+    const r = rows[0] || {};
     return {
-      totalStudents: students.length,
-      studentsReady,
-      studentsWaiting,
-      studentsUncovered,
-      coverage: students.length > 0 ? (studentsReady / students.length) * 100 : 0,
-      totalCollected,
-      collectionsCount: collections.length,
-      avgPerDay,
-      methodBreakdown,
-      uniquePayers,
-      daily,
-      dailyByDay,
-      lowStock,
-      activityLogged,
-      dailyTarget,
-      daysToTarget: dailyTarget > 0 ? Math.max(0, Math.ceil((dailyTarget - collectedToday) / dailyTarget)) : 0,
-      expectedByNow
+      activeYear: r.academic_year || "",
+      dailyTarget: num(r.daily_payment_target),
+      currency: r.currency || "GH₵",
+      lastSynced: r.last_synced || ""
     };
   }
 
-  return { deriveDashboard };
+  function buildReadiness(students) {
+    const ready = students.filter(s => s.status === "ready").length;
+    const waiting = students.filter(s => s.status === "waiting").length;
+    const uncovered = students.filter(s => s.status === "not covered").length;
+    const covered = ready + waiting;
+    const coveredPct = covered > 0 ? Math.round((ready / covered) * 100) : 0;
+    return { ready, waiting, uncovered, covered, coveredPct };
+  }
+
+  function buildKpis(students, payments, config) {
+    const today = todayISO();
+    const readiness = buildReadiness(students);
+    const outstanding = students.reduce((acc, s) => {
+      const bal = s.booksTotal - s.booksPaid;
+      if (bal > 0) {
+        acc.count += 1;
+        acc.amount += bal;
+      }
+      return acc;
+    }, { count: 0, amount: 0 });
+    const paymentsToday = payments.reduce((s, p) => s + (p.date === today ? p.amount : 0), 0);
+    const target = config.dailyTarget;
+    return {
+      totalStudents: students.length,
+      enrolledThisTerm: students.length,
+      paymentsToday,
+      dailyTarget: target,
+      dailyPct: target > 0 ? Math.round((paymentsToday / target) * 100) : 0,
+      readyToIssue: readiness.ready,
+      waiting: readiness.waiting,
+      outstandingCount: outstanding.count,
+      outstandingAmount: outstanding.amount
+    };
+  }
+
+  function buildChart7Days(payments) {
+    const dates = [];
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(d.getFullYear() + "-" + m + "-" + day);
+      labels.push(d.toLocaleDateString("en-US", { weekday: "short" }));
+    }
+    const cash = dates.map(() => 0);
+    const momo = dates.map(() => 0);
+    const telecel = dates.map(() => 0);
+    payments.forEach(p => {
+      const idx = dates.indexOf(p.date);
+      if (idx < 0) return;
+      const method = (p.method || "").toLowerCase();
+      if (method.indexOf("momo") !== -1) momo[idx] += p.amount;
+      else if (method.indexOf("telecel") !== -1) telecel[idx] += p.amount;
+      else cash[idx] += p.amount;
+    });
+    const total = dates.map((_, i) => cash[i] + momo[i] + telecel[i]);
+    return { labels, cash, momo, telecel, total };
+  }
+
+  function buildRecentPayments(payments) {
+    return payments
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+      .slice(0, 5)
+      .map(p => ({
+        studentName: p.studentName,
+        id: p.studentId,
+        className: p.className,
+        amount: p.amount,
+        method: p.method,
+        methodClass: (p.method || "").toLowerCase().indexOf("momo") !== -1 ? "momo" : "cash",
+        status: p.status || "Recorded"
+      }));
+  }
+
+  function timeAgo(iso) {
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return "";
+    const mins = Math.round((Date.now() - t) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " minute" + (mins === 1 ? "" : "s") + " ago";
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + " hour" + (hrs === 1 ? "" : "s") + " ago";
+    const days = Math.round(hrs / 24);
+    return days + " day" + (days === 1 ? "" : "s") + " ago";
+  }
+
+  const ACTIVITY_META = {
+    payment: { icon: "₵", color: "green", title: "Payment recorded" },
+    issue: { icon: "⇧", color: "blue", title: "Books issued" },
+    stock: { icon: "+", color: "amber", title: "Stock received" },
+    student: { icon: "♙", color: "purple", title: "Student added" }
+  };
+
+  function buildActivityFeed(activity) {
+    return activity
+      .slice()
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, 6)
+      .map(a => {
+        const meta = ACTIVITY_META[a.type] || { icon: "•", color: "blue", title: a.type };
+        return {
+          type: a.type,
+          icon: meta.icon,
+          color: meta.color,
+          title: meta.title,
+          description: a.description,
+          timeLabel: timeAgo(a.createdAt)
+        };
+      });
+  }
+
+  function buildBooks(books) {
+    return {
+      stockLowCount: books.filter(b => b.stockQty <= b.lowStockThreshold).length
+    };
+  }
+
+  function buildDashboard(students, payments, activity, books, config) {
+    const kpis = buildKpis(students, payments, config);
+    return {
+      kpis,
+      chart: buildChart7Days(payments),
+      readiness: buildReadiness(students),
+      recentPayments: buildRecentPayments(payments),
+      activityFeed: buildActivityFeed(activity),
+      stockLowCount: buildBooks(books).stockLowCount,
+      currency: config.currency
+    };
+  }
+
+  return {
+    num,
+    formatAmount,
+    todayISO,
+    normalizeStudents,
+    normalizePayments,
+    normalizeActivity,
+    normalizeBooks,
+    normalizeConfig,
+    buildReadiness,
+    buildKpis,
+    buildChart7Days,
+    buildRecentPayments,
+    buildActivityFeed,
+    buildBooks,
+    buildDashboard
+  };
 });

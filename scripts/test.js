@@ -78,68 +78,102 @@ test("rowsToObjects short rows default missing keys to empty", () => {
   assert.deepEqual(csv.rowsToObjects(rows), [{ a: "1", b: "" }]);
 });
 
-test("deriveDashboard computes core stats", () => {
-  const derive = require("../js/derive.js");
-  const input = {
-    students: [
-      { books_paid: "50", books_total: "50" },
-      { books_paid: "40", books_total: "40" },
-      { books_paid: "0", books_total: "45" },
-      { books_paid: "20", books_total: "80" }
-    ],
-    payments: [
-      { amount: "100.00", method: "Cash", date: "2026-09-01" },
-      { amount: "50.50", method: "Cash", date: "2026-09-01" },
-      { amount: "30.00", method: "MTN MoMo", date: "2026-09-02" }
-    ],
-    books: [
-      { book_id: "B1", price: "10", stock_qty: "20", low_stock_threshold: "5" },
-      { book_id: "B2", price: "40", stock_qty: "3", low_stock_threshold: "5" }
-    ],
-    activity: [
-      { type: "payment", description: "fees", amount: "50", created_at: "2026-09-01" }
-    ],
-    config: { daily_payment_target: "200" }
-  };
-  const d = derive.deriveDashboard(input);
-  assert.equal(d.totalStudents, 4);
-  assert.equal(d.studentsReady, 2);
-  assert.equal(d.studentsWaiting, 1);
-  assert.equal(d.studentsUncovered, 1);
-  assert.equal(d.totalCollected, 180.5);
-  assert.equal(d.collectionsCount, 3);
-  assert.equal(d.avgPerDay, 90.25);
-  assert.equal(d.methodBreakdown.Cash, 150.5);
-  assert.equal(d.methodBreakdown["MTN MoMo"], 30);
-  assert.equal(d.uniquePayers, 1);
-  assert.equal(d.activityLogged[0].type, "payment");
-  assert.equal(d.lowStock.length, 1);
-  assert.equal(d.lowStock[0].book_id, "B2");
-  assert.equal(d.coverage, (2 / 4) * 100);
-  assert.equal(d.dailyTarget, 200);
-  assert.equal(d.daysToTarget, 1);
-  assert.equal(d.expectedByNow, 0);
+const derive = require("../js/derive.js");
+
+const STUDENTS = [
+  { student_id: "CEC-001", name: "Emma Owusu", class: "BS 4", gender: "F", academic_year: "2026/2027", books_fee: "350", books_paid: "350", books_total: "350", status: "ready" },
+  { student_id: "CEC-002", name: "Kojo Mensah", class: "KG 2", gender: "M", academic_year: "2026/2027", books_fee: "400", books_paid: "150", books_total: "400", status: "waiting" },
+  { student_id: "CEC-003", name: "Ama Serwaa", class: "BS 1", gender: "F", academic_year: "2026/2027", books_fee: "300", books_paid: "0", books_total: "300", status: "not covered" }
+];
+
+const PAYMENTS = [
+  { payment_id: "P1", student_id: "CEC-001", student_name: "Emma Owusu", class: "BS 4", amount: "100", method: "MTN MoMo", date: todayISO(), status: "Recorded" },
+  { payment_id: "P2", student_id: "CEC-002", student_name: "Kojo Mensah", class: "KG 2", amount: "150", method: "Cash", date: todayISO(), status: "Recorded" },
+  { payment_id: "P3", student_id: "CEC-003", student_name: "Ama Serwaa", class: "BS 1", amount: "50", method: "Telecel", date: sixDaysAgoISO(), status: "Recorded" }
+];
+
+const ACTIVITY = [
+  { activity_id: "A1", type: "payment", description: "Emma Owusu GH₵ 100", amount: "100", created_at: new Date().toISOString() },
+  { activity_id: "A2", type: "stock", description: "50 Mathematics books", amount: "", created_at: new Date(Date.now() - 3600e3).toISOString() }
+];
+
+const BOOKS = [
+  { book_id: "B1", publisher: "Aki-Ola", subject: "Maths", category: "Textbook", price: "45", stock_qty: "5", low_stock_threshold: "10" },
+  { book_id: "B2", publisher: "Kraus", subject: "English", category: "Textbook", price: "50", stock_qty: "60", low_stock_threshold: "10" }
+];
+
+const CONFIG = { academic_year: "2026/2027", daily_payment_target: "10000", currency: "GH₵", last_synced: "2026-09-22T09:00:00Z" };
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+function sixDaysAgoISO() {
+  const d = new Date(Date.now() - 6 * 86400e3);
+  return d.toISOString().slice(0, 10);
+}
+
+test("normalizeStudents casts amounts and keeps fields", () => {
+  const rows = derive.normalizeStudents(STUDENTS);
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].booksFee, 350);
+  assert.equal(rows[0].status, "ready");
+  assert.equal(rows[1].booksPaid, 150);
+  assert.equal(rows[2].booksTotal, 300);
 });
 
-test("deriveDashboard handles empty collections daily breakdown", () => {
-  const derive = require("../js/derive.js");
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const inMonth = `${year}-${month}-05`;
-  const input = {
-    students: [{ books_paid: "0", books_total: "50" }],
-    payments: [{ amount: "100", method: "Cash", date: inMonth }],
-    books: [],
-    activity: [],
-    config: { daily_payment_target: "100" }
-  };
-  const d = derive.deriveDashboard(input);
-  assert.equal(d.totalCollected, 100);
-  assert.equal(typeof d.daily, "object");
-  assert.equal(d.dailyByDay[inMonth], 100);
-  const otherDay = `${year}-${month}-01`;
-  if (otherDay !== inMonth) assert.equal(d.dailyByDay[otherDay] || 0, 0);
+test("buildReadiness counts status thirds", () => {
+  const r = derive.buildReadiness(derive.normalizeStudents(STUDENTS));
+  assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 50 });
+});
+
+test("buildKpis totals today's payments and outstanding", () => {
+  const students = derive.normalizeStudents(STUDENTS);
+  const payments = derive.normalizePayments(PAYMENTS);
+  const k = derive.buildKpis(students, payments, derive.normalizeConfig([CONFIG]));
+  assert.equal(k.totalStudents, 3);
+  assert.equal(k.paymentsToday, 250);
+  assert.equal(k.dailyPct, 3);
+  assert.equal(k.readyToIssue, 1);
+  assert.equal(k.waiting, 1);
+  assert.equal(k.outstandingCount, 2);
+  assert.equal(k.outstandingAmount, 550);
+});
+
+test("buildChart7Days buckets by method over last 7 days", () => {
+  const payments = derive.normalizePayments(PAYMENTS);
+  const chart = derive.buildChart7Days(payments);
+  assert.equal(chart.labels.length, 7);
+  assert.equal(chart.total.reduce((a, b) => a + b, 0), 300);
+  assert.equal(chart.momo.reduce((a, b) => a + b, 0), 100);
+  assert.equal(chart.cash.reduce((a, b) => a + b, 0), 150);
+  assert.equal(chart.telecel.reduce((a, b) => a + b, 0), 50);
+});
+
+test("buildRecentPayments returns newest five", () => {
+  const payments = derive.normalizePayments(PAYMENTS);
+  const recent = derive.buildRecentPayments(payments);
+  assert.equal(recent.length, 3);
+  assert.equal(recent[0].studentName, "Emma Owusu");
+  assert.equal(recent[0].methodClass, "momo");
+});
+
+test("buildActivityFeed maps types to icons and relative time", () => {
+  const feed = derive.buildActivityFeed(derive.normalizeActivity(ACTIVITY));
+  assert.equal(feed[0].icon, "₵");
+  assert.equal(feed[0].color, "green");
+  assert.equal(feed[0].title, "Payment recorded");
+  assert.match(feed[1].timeLabel, /hour/);
+});
+
+test("buildBooks counts low stock", () => {
+  const b = derive.buildBooks(derive.normalizeBooks(BOOKS));
+  assert.equal(b.stockLowCount, 1);
+});
+
+test("formatAmount renders currency with thousands separator", () => {
+  assert.equal(derive.formatAmount(6250, "GH₵"), "GH₵ 6,250");
+  assert.equal(derive.formatAmount(0, "GH₵"), "GH₵ 0");
 });
 
 console.log(pass + " tests passed");
