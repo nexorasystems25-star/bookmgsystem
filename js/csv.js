@@ -8,7 +8,10 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
+  // Quote handling is intentionally lenient: a quote mid-unquoted field is
+  // swallowed, and an unterminated quote is accepted (flushed at EOF).
   function parseCSV(text) {
+    if (text == null) return [];
     text = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const rows = [];
     let row = [];

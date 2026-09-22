@@ -43,3 +43,39 @@ test("rowsToObjects trims whitespace and returns objects", () => {
   const rows = csv.parseCSV("a,b\n 1 , 2 ");
   assert.deepEqual(csv.rowsToObjects(rows), [{ a: "1", b: "2" }]);
 });
+
+test("parseCSV nullish input returns no rows", () => {
+  assert.deepEqual(csv.parseCSV(null), []);
+  assert.deepEqual(csv.parseCSV(undefined), []);
+});
+
+test("parseCSV empty input returns no rows", () => {
+  assert.deepEqual(csv.parseCSV(""), []);
+});
+
+test("parseCSV preserves explicit empty fields", () => {
+  const rows = csv.parseCSV("a,,c");
+  assert.deepEqual(rows, [["a", "", "c"]]);
+});
+
+test("parseCSV flushes quoted field at EOF", () => {
+  const rows = csv.parseCSV('"abc');
+  assert.deepEqual(rows, [["abc"]]);
+});
+
+test("parseCSV preserves embedded newlines inside quotes", () => {
+  const rows = csv.parseCSV('a,"b\nc"');
+  assert.deepEqual(rows, [["a", "b\nc"]]);
+});
+
+test("rowsToObjects header-only CSV returns no objects", () => {
+  const rows = csv.parseCSV("a,b");
+  assert.deepEqual(csv.rowsToObjects(rows), []);
+});
+
+test("rowsToObjects short rows default missing keys to empty", () => {
+  const rows = csv.parseCSV("a,b\n1");
+  assert.deepEqual(csv.rowsToObjects(rows), [{ a: "1", b: "" }]);
+});
+
+console.log(pass + " tests passed");
