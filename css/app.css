@@ -31,3 +31,19 @@ button{cursor:pointer}
 @media(max-width:1050px){.metric-grid{grid-template-columns:repeat(2,1fr)}.dashboard-grid,.bottom-grid{grid-template-columns:1fr}.top-date{display:none}}
 @media(max-width:760px){.sidebar{transform:translateX(-100%);transition:.25s;box-shadow:20px 0 50px rgba(0,0,0,.15)}.sidebar.open{transform:none}.main{margin-left:0}.topbar{padding:0 17px}.mobile-menu{display:block;border:0;background:none;font-size:20px;color:#526178;margin-right:10px}.breadcrumbs{margin-right:auto}.content{padding:22px 16px 35px}.page-head{align-items:flex-start;flex-direction:column}.head-actions{width:100%}.head-actions .btn{flex:1}.metric-grid{grid-template-columns:1fr 1fr;gap:9px}.metric-card{padding:13px}.metric-card>strong{font-size:18px}.notice span{display:block;max-width:80%}}
 @media(max-width:470px){.metric-grid{grid-template-columns:1fr}.top-actions .icon-btn{display:none}.page-head h1{font-size:23px}.panel{padding:14px}.donut-row{gap:14px}.donut{width:105px;height:105px}.donut:before{width:74px;height:74px}}
+
+.offline-pill {
+  display: inline-block;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.data-freshness {
+  color: #64748b;
+  font-size: 12px;
+  margin: 8px 0;
+}
