@@ -41,7 +41,7 @@ Create the Google Spreadsheet and share it:
 - Create: `.env.example`
 - Create: `.gitignore`
 
-- [ ] **Step 1: Create `package.json`**
+- [x] **Step 1: Create `package.json`**
 
 ```json
 {
@@ -57,7 +57,7 @@ Create the Google Spreadsheet and share it:
 }
 ```
 
-- [ ] **Step 2: Create `vercel.json`**
+- [x] **Step 2: Create `vercel.json`**
 
 ```json
 {
@@ -66,13 +66,13 @@ Create the Google Spreadsheet and share it:
 }
 ```
 
-- [ ] **Step 3: Create `.env.example`**
+- [x] **Step 3: Create `.env.example`**
 
 ```
 SPREADSHEET_ID=PASTE_YOUR_SPREADSHEET_ID_HERE
 ```
 
-- [ ] **Step 4: Create `.gitignore`**
+- [x] **Step 4: Create `.gitignore`**
 
 ```
 node_modules/
@@ -80,7 +80,7 @@ node_modules/
 data/*.tmp
 ```
 
-- [ ] **Step 5: Initialize git and commit**
+- [x] **Step 5: Initialize git and commit**
 
 Run: `git init; git add -A; git commit -m "chore: scaffold stage 02 build config"`
 Expected: commit created, exit 0.
@@ -93,7 +93,7 @@ Expected: commit created, exit 0.
 - Create: `js/csv.js`
 - Test: `scripts/test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `scripts/test.js`:
 
@@ -145,12 +145,12 @@ test("rowsToObjects trims whitespace and returns objects", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node scripts/test.js`
 Expected: `FAIL parseCSV splits rows and fields` (module not found) and nonzero exit.
 
-- [ ] **Step 3: Write the minimal implementation** — create `js/csv.js`:
+- [x] **Step 3: Write the minimal implementation** — create `js/csv.js`:
 
 ```js
 (function (root, factory) {
@@ -219,12 +219,12 @@ Expected: `FAIL parseCSV splits rows and fields` (module not found) and nonzero 
 });
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node scripts/test.js`
 Expected: all six tests report `PASS`, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add js/csv.js scripts/test.js
@@ -241,7 +241,7 @@ git commit -m "feat: add shared CSV parser with tests"
 
 All dashboard math is pure and unit-testable. The sync script is not used here.
 
-- [ ] **Step 1: Write the failing test** — append to `scripts/test.js`:
+- [x] **Step 1: Write the failing test** — append to `scripts/test.js`:
 
 ```js
 const derive = require("../js/derive.js");
@@ -343,12 +343,12 @@ test("formatAmount renders currency with thousands separator", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node scripts/test.js`
 Expected: new tests `FAIL` (`derive is not a function`), exit 1.
 
-- [ ] **Step 3: Write the implementation** — create `js/derive.js`:
+- [x] **Step 3: Write the implementation** — create `js/derive.js`:
 
 ```js
 (function (root, factory) {
@@ -590,12 +590,12 @@ Expected: new tests `FAIL` (`derive is not a function`), exit 1.
 });
 ```
 
-- [ ] **Step 4: Run test to verify passes**
+- [x] **Step 4: Run test to verify passes**
 
 Run: `node scripts/test.js`
 Expected: all 17 tests report `PASS`, exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add js/derive.js scripts/test.js
@@ -611,7 +611,7 @@ git commit -m "feat: add pure dashboard derivation layer with tests"
 
 Source of the committed JSON fallback. Runs on every Vercel build and manually. Offline-safe: skips tabs it cannot fetch, never corrupts existing JSON (temp file + rename), and updates `data/meta.json` + `Config.last_synced`.
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```js
 const fs = require("fs");
@@ -730,18 +730,18 @@ main().catch(err => {
 });
 ```
 
-- [ ] **Step 2: Create the local `.env` and run offline test**
+- [x] **Step 2: Create the local `.env` and run offline test**
 
 Create `.env` in the project root with a placeholder, then run:
 `node scripts/sync.js`
 Expected: warning line "No SPREADSHEET_ID found (.env missing)" only if `.env` is empty; `data/meta.json` created; exit 0. If you left `.env` empty, remove its content or delete it for this test, then re-run and confirm no crash.
 
-- [ ] **Step 3: Verify offline mode preserves existing JSON**
+- [x] **Step 3: Verify offline mode preserves existing JSON**
 
 Run: `node scripts/sync.js` with your real `SPREADSHEET_ID` in `.env` (after you populate the sheet). Then temporarily rename `.env` to `.env.bak` and run `node scripts/sync.js` again.
 Expected: script warns and exits 0; `data/*.json` files are unchanged; `data` dir never contains `.tmp` files after run.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/sync.js
@@ -757,7 +757,7 @@ git commit -m "feat: add build-time Google Sheets sync script"
 
 Holds the spreadsheet ID, builds GVIZ URLs, fetches tabs live with a timeout, falls back to `data/{tab}.json`, caches in an in-memory session cache, and assembles `getDashboardData()`.
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```js
 (function () {
@@ -850,24 +850,45 @@ Holds the spreadsheet ID, builds GVIZ URLs, fetches tabs live with a timeout, fa
     return dashboard;
   }
 
+  let forceOfflineFlag = false;
+  try {
+    forceOfflineFlag =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("cecForceOffline") === "true";
+  } catch (ignored) {}
+
+  function setForceOffline(v) {
+    forceOfflineFlag = !!v;
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (forceOfflineFlag) sessionStorage.setItem("cecForceOffline", "true");
+        else sessionStorage.removeItem("cecForceOffline");
+      }
+    } catch (ignored) {}
+  }
+
   window.CEC = window.CEC || {};
+  Object.defineProperty(window.CEC, "forceOffline", {
+    get: function () { return forceOfflineFlag; },
+    set: function (v) { setForceOffline(v); },
+    configurable: true
+  });
   Object.assign(window.CEC, {
     csv: window.CEC.csv,
     derive: window.CEC.derive,
-    getDashboardData: getDashboardData,
-    forceOffline: false
+    getDashboardData: getDashboardData
   });
   window.CEC.meta = { spreadsheet_id: "", last_synced: "" };
 })();
 ```
 
-- [ ] **Step 2: Manual smoke test**
+- [x] **Step 2: Manual smoke test**
 
 Serve locally (`npx serve .` or VS Code Live Server). Open DevTools console, run:
 `await CEC.getDashboardData()`
 Expected: returns an object with `kpis`, `chart`, `readiness`, `recentPayments`, `activityFeed`, `currency`, `lastSynced`, `offline`. With no network to Google it falls back to JSON (confirm `offline: true` when `data/*.json` exist).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add js/data-access.js
@@ -882,7 +903,7 @@ git commit -m "feat: add browser data-access layer with live/offline fallback"
 - Modify: `index.html` (add IDs, containers, script tags)
 - Modify: `js/app.js` (render dashboard)
 
-- [ ] **Step 1: Edit `index.html`**
+- [x] **Step 1: Edit `index.html`**
 
 1a. Add IDs to the four KPI strong values:
 
@@ -1029,7 +1050,7 @@ New:
 <script src="js/app.js"></script>
 ```
 
-- [ ] **Step 2: Add minimal styles to `css/app.css`** — append:
+- [x] **Step 2: Add minimal styles to `css/app.css`** — append:
 
 ```css
 .offline-pill {
@@ -1049,7 +1070,7 @@ New:
 }
 ```
 
-- [ ] **Step 3: Replace `js/app.js`** with:
+- [x] **Step 3: Replace `js/app.js`** with:
 
 ```js
 (() => {
@@ -1160,17 +1181,17 @@ New:
 })();
 ```
 
-- [ ] **Step 4: Offline verification locally (dev flag)**
+- [x] **Step 4: Offline verification locally (dev flag)**
 
 Serve the site. In DevTools console run: `CEC.forceOffline = true; location.reload();`
 Expected: every widget renders from `data/*.json`; the offline pill shows "Offline mode — data from ...".
 
-- [ ] **Step 5: Live verification locally**
+- [x] **Step 5: Live verification locally**
 
 Serve the site with `.env` ID present and network available. Reload.
 Expected: widgets render; freshness label shows the sync time; offline pill hidden.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add index.html css/app.css js/app.js
@@ -1184,17 +1205,17 @@ git commit -m "feat: wire dashboard widgets to Google Sheets data layer"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Regenerate JSON with real data**
+- [x] **Step 1: Regenerate JSON with real data**
 
 Run: `node scripts/sync.js`
 Expected: each tab logs `Synced X -> data/x.json (N rows)`; `data/meta.json` has fresh `last_synced`.
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run: `node scripts/test.js`
 Expected: all tests `PASS`, exit 0.
 
-- [ ] **Step 3: Add `.env` instructions to README** — append a Stage 02 section:
+- [x] **Step 3: Add `.env` instructions to README** — append a Stage 02 section:
 
 ```markdown
 ## Stage 02 — Live data (Google Sheets + JSON fallback)
@@ -1206,7 +1227,7 @@ Expected: all tests `PASS`, exit 0.
 5. Deploy to Vercel — `npm run build` runs `node scripts/sync.js` automatically, rebuilding data/*.json on every deploy. The browser reads Google Sheets live and falls back to data/*.json when offline.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md data

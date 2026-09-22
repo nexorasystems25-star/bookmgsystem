@@ -88,12 +88,33 @@
     return dashboard;
   }
 
+  let forceOfflineFlag = false;
+  try {
+    forceOfflineFlag =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("cecForceOffline") === "true";
+  } catch (ignored) {}
+
+  function setForceOffline(v) {
+    forceOfflineFlag = !!v;
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (forceOfflineFlag) sessionStorage.setItem("cecForceOffline", "true");
+        else sessionStorage.removeItem("cecForceOffline");
+      }
+    } catch (ignored) {}
+  }
+
   window.CEC = window.CEC || {};
+  Object.defineProperty(window.CEC, "forceOffline", {
+    get: function () { return forceOfflineFlag; },
+    set: function (v) { setForceOffline(v); },
+    configurable: true
+  });
   Object.assign(window.CEC, {
     csv: window.CEC.csv,
     derive: window.CEC.derive,
-    getDashboardData: getDashboardData,
-    forceOffline: !!(window.CEC && window.CEC.forceOffline)
+    getDashboardData: getDashboardData
   });
   window.CEC.meta = { spreadsheet_id: "", last_synced: "" };
 })();
