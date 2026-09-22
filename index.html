@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Chariot Educational Complex Book Management & Payment System">
+  <title>CEC Books — Dashboard</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CEC</div>
+        <div>
+          <strong>CEC Books</strong>
+          <span>Management System</span>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <span class="eyebrow">Workspace</span>
+        <button class="workspace-select" type="button">
+          <span class="workspace-dot"></span>
+          <span>
+            <b>2026 / 2027</b>
+            <small>Academic year</small>
+          </span>
+          <span class="chevron">⌄</span>
+        </button>
+      </div>
+
+      <nav class="nav" aria-label="Primary navigation">
+        <span class="nav-label">Overview</span>
+        <a class="nav-item active" href="#dashboard" data-page="dashboard">
+          <span class="icon">⌂</span><span>Dashboard</span>
+        </a>
+
+        <span class="nav-label">Operations</span>
+        <a class="nav-item" href="#students" data-page="students">
+          <span class="icon">♙</span><span>Students</span>
+        </a>
+        <a class="nav-item" href="#payments" data-page="payments">
+          <span class="icon">₵</span><span>Payments</span>
+        </a>
+        <a class="nav-item" href="#books" data-page="books">
+          <span class="icon">▤</span><span>Books & Packages</span>
+        </a>
+        <a class="nav-item" href="#inventory" data-page="inventory">
+          <span class="icon">▦</span><span>Inventory</span>
+        </a>
+        <a class="nav-item" href="#issuing" data-page="issuing">
+          <span class="icon">⇧</span><span>Issue Books</span>
+        </a>
+
+        <span class="nav-label">Insights</span>
+        <a class="nav-item" href="#reports" data-page="reports">
+          <span class="icon">◒</span><span>Reports</span>
+        </a>
+        <a class="nav-item" href="#settings" data-page="settings">
+          <span class="icon">⚙</span><span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="help-card">
+          <span class="help-icon">?</span>
+          <div>
+            <b>Need a hand?</b>
+            <small>Check the workflow guide.</small>
+          </div>
+        </div>
+        <button class="profile-mini" type="button">
+          <span class="avatar">DA</span>
+          <span><b>David Admin</b><small>Administrator</small></span>
+          <span class="dots">•••</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation">☰</button>
+        <div class="breadcrumbs"><span>CEC Books</span><b>/</b><strong id="pageTitle">Dashboard</strong></div>
+        <div class="top-actions">
+          <button class="icon-btn" aria-label="Search">⌕</button>
+          <button class="icon-btn notification" aria-label="Notifications">♢<i></i></button>
+          <div class="top-date">Tuesday, 22 September 2026</div>
+        </div>
+      </header>
+
+      <section class="content" id="content">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h1>Good afternoon, David.</h1>
+            <p class="muted">Here is what is happening with books and payments today.</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-light" type="button">Export report</button>
+            <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
+          </div>
+        </div>
+
+        <div class="notice">
+          <div class="notice-icon">↗</div>
+          <div>
+            <b>2026/2027 academic year is active</b>
+            <span>Package prices and book entitlements are currently being recorded against this year.</span>
+          </div>
+          <button class="notice-close" aria-label="Dismiss">×</button>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <div class="metric-top"><span>Total students</span><span class="metric-icon blue">♙</span></div>
+            <strong>248</strong>
+            <div class="metric-foot"><span class="positive">+18</span> enrolled this term</div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span>Payments today</span><span class="metric-icon green">₵</span></div>
+            <strong>GH₵ 6,250</strong>
+            <div class="metric-foot"><span class="positive">64%</span> of daily target</div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span>Ready to issue</span><span class="metric-icon amber">⇧</span></div>
+            <strong>126</strong>
+            <div class="metric-foot"><span class="warning">34</span> students waiting</div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span>Outstanding</span><span class="metric-icon red">!</span></div>
+            <strong>GH₵ 28,450</strong>
+            <div class="metric-foot"><span class="muted">Across 97 students</span></div>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel collection-panel">
+            <div class="panel-head">
+              <div><h2>Collection overview</h2><p>Payments recorded in the last 7 days.</p></div>
+              <button class="text-btn">View payments →</button>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-y"><span>8k</span><span>6k</span><span>4k</span><span>2k</span><span>0</span></div>
+              <div class="chart">
+                <div class="grid-line g1"></div><div class="grid-line g2"></div><div class="grid-line g3"></div><div class="grid-line g4"></div>
+                <div class="bars">
+                  <i style="height:42%"></i><i style="height:55%"></i><i style="height:47%"></i><i style="height:72%"></i>
+                  <i style="height:61%"></i><i style="height:88%"></i><i style="height:76%"></i>
+                </div>
+                <div class="chart-x"><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span></div>
+              </div>
+            </div>
+            <div class="legend"><span><i class="legend-dot cash"></i> Cash</span><span><i class="legend-dot momo"></i> Mobile Money</span></div>
+          </section>
+
+          <section class="panel readiness-panel">
+            <div class="panel-head">
+              <div><h2>Book readiness</h2><p>Current entitlement status.</p></div>
+              <button class="more-btn">•••</button>
+            </div>
+            <div class="donut-row">
+              <div class="donut"><div><b>78%</b><span>covered</span></div></div>
+              <div class="status-list">
+                <div><span><i class="status-dot ready"></i>Ready to issue</span><b>126</b></div>
+                <div><span><i class="status-dot waiting"></i>Waiting for stock</span><b>34</b></div>
+                <div><span><i class="status-dot uncovered"></i>Not covered</span><b>88</b></div>
+              </div>
+            </div>
+            <div class="stock-alert"><span>!</span><div><b>7 items are low in stock</b><small>Review inventory before the next issuing session.</small></div><button>Review →</button></div>
+          </section>
+        </div>
+
+        <div class="bottom-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>Recent payments</h2><p>Latest transactions across the active academic year.</p></div>
+              <button class="text-btn">See all →</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Student</th><th>Class</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td><b>Emma Owusu</b><small>CEC-00218</small></td><td>BS 4</td><td>GH₵ 200</td><td><span class="method cash">Cash</span></td><td><span class="pill success">Recorded</span></td></tr>
+                  <tr><td><b>Kojo Mensah</b><small>CEC-00176</small></td><td>KG 2</td><td>GH₵ 400</td><td><span class="method momo">MTN MoMo</span></td><td><span class="pill success">Recorded</span></td></tr>
+                  <tr><td><b>Abigail Asante</b><small>CEC-00241</small></td><td>BS 1</td><td>GH₵ 150</td><td><span class="method momo">Telecel</span></td><td><span class="pill success">Recorded</span></td></tr>
+                  <tr><td><b>Daniel Osei</b><small>CEC-00193</small></td><td>Nursery 2</td><td>GH₵ 100</td><td><span class="method cash">Cash</span></td><td><span class="pill success">Recorded</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel activity-panel">
+            <div class="panel-head"><div><h2>Activity</h2><p>Latest system events.</p></div><button class="more-btn">•••</button></div>
+            <div class="activity">
+              <div class="activity-item"><span class="activity-icon green">₵</span><div><b>Payment recorded</b><p>Emma Owusu · GH₵ 200</p><small>8 minutes ago</small></div></div>
+              <div class="activity-item"><span class="activity-icon blue">⇧</span><div><b>Books issued</b><p>12 books · BS 4</p><small>22 minutes ago</small></div></div>
+              <div class="activity-item"><span class="activity-icon amber">+</span><div><b>Stock received</b><p>50 Mathematics books</p><small>1 hour ago</small></div></div>
+              <div class="activity-item"><span class="activity-icon purple">♙</span><div><b>Student added</b><p>Abigail Asante · BS 1</p><small>2 hours ago</small></div></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

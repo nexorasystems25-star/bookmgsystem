@@ -1,0 +1,11 @@
+{
+  "name": "cec-book-system",
+  "version": "2.0.0",
+  "private": true,
+  "description": "CEC Book Management & Payment System",
+  "scripts": {
+    "build": "node scripts/sync.js",
+    "sync": "node scripts/sync.js",
+    "test": "node scripts/test.js"
+  }
+}
