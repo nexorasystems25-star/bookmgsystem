@@ -25,6 +25,13 @@
     return d.getFullYear() + "-" + m + "-" + day;
   }
 
+  function classifyMethod(method) {
+    const m = String(method || "").toLowerCase();
+    if (m.indexOf("momo") !== -1) return "momo";
+    if (m.indexOf("telecel") !== -1) return "telecel";
+    return "cash";
+  }
+
   function normalizeStudents(rows) {
     return rows.map(r => ({
       studentId: r.student_id,
@@ -35,7 +42,7 @@
       booksFee: num(r.books_fee),
       booksPaid: num(r.books_paid),
       booksTotal: num(r.books_total),
-      status: r.status
+      status: String(r.status || "").toLowerCase().trim()
     }));
   }
 
@@ -89,7 +96,7 @@
     const waiting = students.filter(s => s.status === "waiting").length;
     const uncovered = students.filter(s => s.status === "not covered").length;
     const covered = ready + waiting;
-    const coveredPct = covered > 0 ? Math.round((ready / covered) * 100) : 0;
+    const coveredPct = students.length > 0 ? Math.round(((ready + waiting) / students.length) * 100) : 0;
     return { ready, waiting, uncovered, covered, coveredPct };
   }
 
@@ -136,9 +143,9 @@
     payments.forEach(p => {
       const idx = dates.indexOf(p.date);
       if (idx < 0) return;
-      const method = (p.method || "").toLowerCase();
-      if (method.indexOf("momo") !== -1) momo[idx] += p.amount;
-      else if (method.indexOf("telecel") !== -1) telecel[idx] += p.amount;
+      const cls = classifyMethod(p.method);
+      if (cls === "momo") momo[idx] += p.amount;
+      else if (cls === "telecel") telecel[idx] += p.amount;
       else cash[idx] += p.amount;
     });
     const total = dates.map((_, i) => cash[i] + momo[i] + telecel[i]);
@@ -156,7 +163,7 @@
         className: p.className,
         amount: p.amount,
         method: p.method,
-        methodClass: (p.method || "").toLowerCase().indexOf("momo") !== -1 ? "momo" : "cash",
+        methodClass: classifyMethod(p.method),
         status: p.status || "Recorded"
       }));
   }
@@ -183,7 +190,7 @@
   function buildActivityFeed(activity) {
     return activity
       .slice()
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
       .slice(0, 6)
       .map(a => {
         const meta = ACTIVITY_META[a.type] || { icon: "•", color: "blue", title: a.type };

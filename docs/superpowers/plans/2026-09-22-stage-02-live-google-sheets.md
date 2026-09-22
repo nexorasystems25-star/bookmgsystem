@@ -290,7 +290,7 @@ test("normalizeStudents casts amounts and keeps fields", () => {
 
 test("buildReadiness counts status thirds", () => {
   const r = derive.buildReadiness(derive.normalizeStudents(STUDENTS));
-  assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 50 });
+  assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 67 });
 });
 
 test("buildKpis totals today's payments and outstanding", () => {
@@ -442,7 +442,7 @@ Expected: new tests `FAIL` (`derive is not a function`), exit 1.
     const waiting = students.filter(s => s.status === "waiting").length;
     const uncovered = students.filter(s => s.status === "not covered").length;
     const covered = ready + waiting;
-    const coveredPct = covered > 0 ? Math.round((ready / covered) * 100) : 0;
+    const coveredPct = students.length > 0 ? Math.round(((ready + waiting) / students.length) * 100) : 0;
     return { ready, waiting, uncovered, covered, coveredPct };
   }
 

@@ -106,11 +106,16 @@ const CONFIG = { academic_year: "2026/2027", daily_payment_target: "10000", curr
 
 function todayISO() {
   const d = new Date();
-  return d.toISOString().slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
 }
 function sixDaysAgoISO() {
-  const d = new Date(Date.now() - 6 * 86400e3);
-  return d.toISOString().slice(0, 10);
+  const d = new Date();
+  d.setDate(d.getDate() - 6);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
 }
 
 test("normalizeStudents casts amounts and keeps fields", () => {
@@ -124,7 +129,7 @@ test("normalizeStudents casts amounts and keeps fields", () => {
 
 test("buildReadiness counts status thirds", () => {
   const r = derive.buildReadiness(derive.normalizeStudents(STUDENTS));
-  assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 50 });
+  assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 67 });
 });
 
 test("buildKpis totals today's payments and outstanding", () => {
