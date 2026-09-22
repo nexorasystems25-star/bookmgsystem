@@ -1,0 +1,56 @@
+[
+  {
+    "book_id": "B001",
+    "publisher": "GoldenA",
+    "subject": "BWP - Mathematics",
+    "category": "Core",
+    "price": "85",
+    "stock_qty": "40",
+    "low_stock_threshold": "10"
+  },
+  {
+    "book_id": "B002",
+    "publisher": "GoldenA",
+    "subject": "English Language",
+    "category": "Core",
+    "price": "78",
+    "stock_qty": "25",
+    "low_stock_threshold": "10"
+  },
+  {
+    "book_id": "B003",
+    "publisher": "Pearson",
+    "subject": "Integrated Science",
+    "category": "Core",
+    "price": "92",
+    "stock_qty": "12",
+    "low_stock_threshold": "15"
+  },
+  {
+    "book_id": "B004",
+    "publisher": "Aki-Ola",
+    "subject": "Social Studies",
+    "category": "Elective",
+    "price": "70",
+    "stock_qty": "60",
+    "low_stock_threshold": "10"
+  },
+  {
+    "book_id": "B005",
+    "publisher": "DL",
+    "subject": "JHS Science Textbook",
+    "category": "Core",
+    "price": "88",
+    "stock_qty": "8",
+    "low_stock_threshold": "10"
+  },
+  {
+    "book_id": "B006",
+    "publisher": "GoldenA",
+    "subject": "Mathematics for JHS",
+    "category": "Core",
+    "price": "90",
+    "stock_qty": "30",
+    "low_stock_threshold": "10"
+  }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "student_id": "S001",
+    "name": "Abena Mensah",
+    "class": "BS 1A",
+    "gender": "female",
+    "academic_year": "2026/2027",
+    "books_fee": "1200",
+    "books_paid": "1200",
+    "books_total": "8",
+    "status": "ready"
+  },
+  {
+    "student_id": "S002",
+    "name": "Kofi Owusu",
+    "class": "BS 4",
+    "gender": "male",
+    "academic_year": "2026/2027",
+    "books_fee": "1350",
+    "books_paid": "1350",
+    "books_total": "9",
+    "status": "ready"
+  },
+  {
+    "student_id": "S003",
+    "name": "Ama Serwaa",
+    "class": "JS 1",
+    "gender": "female",
+    "academic_year": "2026/2027",
+    "books_fee": "1400",
+    "books_paid": "700",
+    "books_total": "10",
+    "status": "waiting"
+  },
+  {
+    "student_id": "S004",
+    "name": "Yaw Boateng",
+    "class": "BS 2",
+    "gender": "male",
+    "academic_year": "2026/2027",
+    "books_fee": "1200",
+    "books_paid": "600",
+    "books_total": "8",
+    "status": "waiting"
+  },
+  {
+    "student_id": "S005",
+    "name": "Esi Donkor",
+    "class": "JS 2",
+    "gender": "female",
+    "academic_year": "2026/2027",
+    "books_fee": "1500",
+    "books_paid": "1500",
+    "books_total": "10",
+    "status": "ready"
+  },
+  {
+    "student_id": "S006",
+    "name": "Kwame Asante",
+    "class": "BS 3",
+    "gender": "male",
+    "academic_year": "2026/2027",
+    "books_fee": "1250",
+    "books_paid": "0",
+    "books_total": "8",
+    "status": "not covered"
+  },
+  {
+    "student_id": "S007",
+    "name": "Akua Sarpong",
+    "class": "BS 1B",
+    "gender": "female",
+    "academic_year": "2026/2027",
+    "books_fee": "1200",
+    "books_paid": "800",
+    "books_total": "8",
+    "status": "waiting"
+  },
+  {
+    "student_id": "S008",
+    "name": "Nana Adjei",
+    "class": "JS 3",
+    "gender": "male",
+    "academic_year": "2026/2027",
+    "books_fee": "1450",
+    "books_paid": "1450",
+    "books_total": "10",
+    "status": "ready"
+  },
+  {
+    "student_id": "S009",
+    "name": "Araba Quaicoe",
+    "class": "BS 4",
+    "gender": "female",
+    "academic_year": "2026/2027",
+    "books_fee": "1350",
+    "books_paid": "0",
+    "books_total": "9",
+    "status": "not covered"
+  }
+]

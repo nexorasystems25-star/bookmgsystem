@@ -1,0 +1,82 @@
+[
+  {
+    "payment_id": "P001",
+    "student_id": "S001",
+    "student_name": "Abena Mensah",
+    "class": "BS 1A",
+    "amount": "1200",
+    "method": "Cash",
+    "date": "2026-09-22",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P002",
+    "student_id": "S002",
+    "student_name": "Kofi Owusu",
+    "class": "BS 4",
+    "amount": "1350",
+    "method": "MTN MoMo",
+    "date": "2026-09-21",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P003",
+    "student_id": "S005",
+    "student_name": "Esi Donkor",
+    "class": "JS 2",
+    "amount": "1500",
+    "method": "Telecel",
+    "date": "2026-09-21",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P004",
+    "student_id": "S003",
+    "student_name": "Ama Serwaa",
+    "class": "JS 1",
+    "amount": "350",
+    "method": "Cash",
+    "date": "2026-09-20",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P005",
+    "student_id": "S008",
+    "student_name": "Nana Adjei",
+    "class": "JS 3",
+    "amount": "1450",
+    "method": "MTN MoMo",
+    "date": "2026-09-19",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P006",
+    "student_id": "S007",
+    "student_name": "Akua Sarpong",
+    "class": "BS 1B",
+    "amount": "200",
+    "method": "MTN MoMo",
+    "date": "2026-09-18",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P007",
+    "student_id": "S004",
+    "student_name": "Yaw Boateng",
+    "class": "BS 2",
+    "amount": "300",
+    "method": "Telecel",
+    "date": "2026-09-17",
+    "status": "confirmed"
+  },
+  {
+    "payment_id": "P008",
+    "student_id": "S001",
+    "student_name": "Abena Mensah",
+    "class": "BS 1A",
+    "amount": "400",
+    "method": "Cash",
+    "date": "2026-09-16",
+    "status": "confirmed"
+  }
+]

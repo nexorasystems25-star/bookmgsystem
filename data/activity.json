@@ -1,0 +1,44 @@
+[
+  {
+    "activity_id": "A001",
+    "type": "payment",
+    "description": "Payment received from Abena Mensah",
+    "amount": "1200",
+    "created_at": "2026-09-22"
+  },
+  {
+    "activity_id": "A002",
+    "type": "issue",
+    "description": "Books issued to Kofi Owusu",
+    "amount": "1350",
+    "created_at": "2026-09-21"
+  },
+  {
+    "activity_id": "A003",
+    "type": "payment",
+    "description": "Payment received from Esi Donkor",
+    "amount": "1500",
+    "created_at": "2026-09-21"
+  },
+  {
+    "activity_id": "A004",
+    "type": "stock",
+    "description": "New stock added for JS 2 package",
+    "amount": "0",
+    "created_at": "2026-09-19"
+  },
+  {
+    "activity_id": "A005",
+    "type": "student",
+    "description": "New student record created for Nana Adjei",
+    "amount": "0",
+    "created_at": "2026-09-18"
+  },
+  {
+    "activity_id": "A006",
+    "type": "payment",
+    "description": "Partial payment from Akua Sarpong",
+    "amount": "200",
+    "created_at": "2026-09-18"
+  }
+]
