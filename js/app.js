@@ -3,6 +3,8 @@
   const mobileMenu = document.getElementById("mobileMenu");
   const toast = document.getElementById("toast");
 
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
   mobileMenu?.addEventListener("click", () => sidebar.classList.toggle("open"));
 
   document.querySelectorAll(".nav-item").forEach(link => {
@@ -69,11 +71,11 @@
     document.getElementById("recentPaymentsBody").innerHTML = data.recentPayments
       .map(p => `
         <tr>
-          <td><b>${p.studentName}</b><small>${p.id}</small></td>
-          <td>${p.className}</td>
+          <td><b>${esc(p.studentName)}</b><small>${esc(p.id)}</small></td>
+          <td>${esc(p.className)}</td>
           <td>${CEC.derive.formatAmount(p.amount, cur)}</td>
-          <td><span class="method ${p.methodClass}">${p.method}</span></td>
-          <td><span class="pill success">${p.status}</span></td>
+          <td><span class="method ${p.methodClass}">${esc(p.method)}</span></td>
+          <td><span class="pill success">${esc(p.status)}</span></td>
         </tr>`)
       .join("");
 
@@ -81,7 +83,7 @@
       .map(a => `
         <div class="activity-item">
           <span class="activity-icon ${a.color}">${a.icon}</span>
-          <div><b>${a.title}</b><p>${a.description}</p><small>${a.timeLabel}</small></div>
+          <div><b>${esc(a.title)}</b><p>${esc(a.description)}</p><small>${a.timeLabel}</small></div>
         </div>`)
       .join("");
 

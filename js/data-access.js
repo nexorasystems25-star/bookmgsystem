@@ -93,7 +93,7 @@
     csv: window.CEC.csv,
     derive: window.CEC.derive,
     getDashboardData: getDashboardData,
-    forceOffline: false
+    forceOffline: !!(window.CEC && window.CEC.forceOffline)
   });
   window.CEC.meta = { spreadsheet_id: "", last_synced: "" };
 })();

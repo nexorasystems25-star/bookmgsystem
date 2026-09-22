@@ -755,7 +755,7 @@ git commit -m "feat: add build-time Google Sheets sync script"
 **Files:**
 - Create: `js/data-access.js`
 
-Holds the spreadsheet ID, builds GVIZ URLs, fetches tabs live with a timeout, falls back to `data/{tab}.json`, caches in `sessionStorage`, and assembles `getDashboardData()`.
+Holds the spreadsheet ID, builds GVIZ URLs, fetches tabs live with a timeout, falls back to `data/{tab}.json`, caches in an in-memory session cache, and assembles `getDashboardData()`.
 
 - [ ] **Step 1: Write the script**
 
@@ -1220,7 +1220,7 @@ git commit -m "docs: document stage 02 live-data workflow"
 **Spec coverage:**
 - §2 architecture (live read + JSON fallback + sync on build) → Tasks 4, 5, 6 ✓
 - §3 schema (five tabs, `publisher`-only, config fields) → Prerequisite + Task 4 ✓
-- §4 data-access layer (`CEC.fetch*`, derivations, sessionStorage caching, network-first) → Tasks 3, 5 ✓
+- §4 data-access layer (`CEC.fetch*`, derivations, in-memory session cache, network-first) → Tasks 3, 5 ✓
 - §5 sync script (auto on build, manual, offline-safe, temp+rename, meta.json, last_synced) → Task 4 ✓
 - §6 error handling (independent tab failure, numeric coercion, invalid dates dropped, offline pill) → Tasks 3, 5, 6 ✓
 - §7 testing (sync diff, offline dev flag, Vercel live) → Tasks 4, 6, 7 ✓

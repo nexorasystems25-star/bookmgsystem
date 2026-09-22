@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "private": true,
   "description": "CEC Book Management & Payment System",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "node scripts/sync.js",
     "sync": "node scripts/sync.js",

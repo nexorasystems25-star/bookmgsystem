@@ -1,0 +1,17 @@
+# Files never deployed to Vercel. Public files that stay: js/, css/,
+# data/*.json (offline fallback), index.html, vercel.json, package.json.
+
+# Secrets / environment templates — must never be uploaded
+.env
+.env.example
+
+# Repo/dev config
+.gitignore
+
+# Documentation
+*.md
+docs/
+scripts/
+
+# Transient artifact of sync.js atomic writes (temp + rename)
+data/*.tmp
