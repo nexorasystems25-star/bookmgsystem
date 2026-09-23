@@ -767,7 +767,7 @@ git commit -m "feat: add write-back operation runners (payment, student, issue, 
 - Create: `api/issue.js`
 - Create: `api/stock.js`
 
-- [ ] **Step 1: Create `api/payment.js`**
+- [x] **Step 1: Create `api/payment.js`**
 
 ```js
 "use strict";
@@ -792,7 +792,7 @@ module.exports = async function handler(req, res) {
 };
 ```
 
-- [ ] **Step 2: Create `api/student.js`**
+- [x] **Step 2: Create `api/student.js`**
 
 ```js
 "use strict";
@@ -817,7 +817,7 @@ module.exports = async function handler(req, res) {
 };
 ```
 
-- [ ] **Step 3: Create `api/issue.js`**
+- [x] **Step 3: Create `api/issue.js`**
 
 ```js
 "use strict";
@@ -842,7 +842,7 @@ module.exports = async function handler(req, res) {
 };
 ```
 
-- [ ] **Step 4: Create `api/stock.js`**
+- [x] **Step 4: Create `api/stock.js`**
 
 ```js
 "use strict";
@@ -867,7 +867,7 @@ module.exports = async function handler(req, res) {
 };
 ```
 
-- [ ] **Step 5: Syntax-check all four endpoints and `_lib`**
+- [x] **Step 5: Syntax-check all four endpoints and `_lib`**
 
 ```bash
 node --check api/_lib.js
@@ -879,7 +879,7 @@ node --check api/stock.js
 
 Run each as its own command (PowerShell 5.1 has no `&&`). Expected: no output = valid syntax.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add api/payment.js api/student.js api/issue.js api/stock.js
