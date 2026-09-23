@@ -111,7 +111,7 @@ function createClient(env, fetchImpl) {
         "&refresh_token=" + encodeURIComponent(env.refresh_token) +
         "&grant_type=refresh_token"
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.access_token) {
       throw new Error("OAuth refresh failed: " + (data.error_description || res.status));
     }
@@ -125,7 +125,7 @@ function createClient(env, fetchImpl) {
       API_BASE + "/" + encodeURIComponent(spreadsheetId) + "/values/" + encodeURIComponent(range),
       { headers: { Authorization: "Bearer " + token } }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets read failed: " + ((data && data.error && data.error.message) || res.status));
     return data && data.values ? data.values : [];
   }
@@ -140,7 +140,7 @@ function createClient(env, fetchImpl) {
         body: JSON.stringify({ majorDimension: "ROWS", values: rows })
       }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets append failed: " + ((data && data.error && data.error.message) || res.status));
     return data;
   }
@@ -155,7 +155,7 @@ function createClient(env, fetchImpl) {
         body: JSON.stringify({ majorDimension: "ROWS", values: values })
       }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets update failed: " + ((data && data.error && data.error.message) || res.status));
     return data;
   }

@@ -328,4 +328,23 @@ test("createClient throws on missing env", () => {
   assert.throws(() => lib.createClient({}, () => {}), /GOOGLE_CLIENT_ID/);
 });
 
+test("createClient surfaces the OAuth error description on refresh failure", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: false, status: 400, body: { error_description: "Token has been expired or revoked." } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await assert.rejects(client.sheetsGet("spr123", "Students!A:I"), /Token has been expired or revoked./);
+});
+
+test("sheetsGet reports the Sheets API error message on failure", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: false, status: 404, body: { error: { message: "Requested entity was not found." } } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await assert.rejects(client.sheetsGet("spr123", "BadRange"), /Sheets read failed: Requested entity was not found/);
+});
+
 console.log(pass + " tests passed");
