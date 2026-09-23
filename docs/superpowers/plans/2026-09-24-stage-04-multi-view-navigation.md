@@ -1238,7 +1238,7 @@ node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs
 node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-nav-e2e.cjs
 ```
 
-All green: **62/62 unit, 7/7 + 6/6 + 8/8 browser checks, deploy smoke PASS.**
+All green: **62/62 unit, 7/7 browser, 7/7 write, 10/10 nav, deploy smoke PASS.**
 
 #### Commit
 
@@ -1251,16 +1251,16 @@ git commit -m "docs: stage 04 shipped, tick plan and smoke notes"
 
 ## Final checklist (what "done" looks like)
 
-- [ ] `js/view-models.js` exists; TDD tests appended and green (62/62).
-- [ ] `js/data-access.js` exposes `getAllData()`; `getDashboardData()` keeps its shape;
+- [x] `js/view-models.js` exists; TDD tests appended and green (62/62).
+- [x] `js/data-access.js` exposes `getAllData()`; `getDashboardData()` keeps its shape;
       `clearCache()` drops the shared dataset.
-- [ ] `index.html` has 8 `.page` sections; `#offlinePill`/`#dataFreshness` are page-level;
+- [x] `index.html` has 8 `.page` sections; `#offlinePill`/`#dataFreshness` are page-level;
       `view-models.js` script tag added; `data-go` wired on the three dashboard buttons.
-- [ ] `css/app.css` has `.page[hidden]`, chips, search, new pills; no rule collisions
+- [x] `css/app.css` has `.page[hidden]`, chips, search, new pills; no rule collisions
       (checked against existing `.pill.success`, `.method.*`, `.metric-icon.*`).
-- [ ] `js/app.js` routes on `location.hash`, renders all 8 pages from one dataset, exposes
+- [x] `js/app.js` routes on `location.hash`, renders all 8 pages from one dataset, exposes
       `window.CEC.refreshAll`; no "module is ready" stub toast remains.
-- [ ] `js/write.js` repaints via `root.refreshAll()`.
-- [ ] Stage 02/03 regression harnesses still green; new nav harness green.
-- [ ] Deployed deep links + nav switching + post-write repaint verified on Vercel.
+- [x] `js/write.js` repaints via `root.refreshAll()`.
+- [x] Stage 02/03 regression harnesses still green; new nav harness green.
+- [x] Deployed deep links + nav switching + post-write repaint verified on Vercel.
 - [ ] README Stage 04 section added; spec checklist ticked; final commit pushed.

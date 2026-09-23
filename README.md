@@ -69,3 +69,29 @@ Browser side: the *Record payment* / *Register student* / *Issue books* / *Adjus
 Test locally: `npm test` (unit + API layer) and `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` (browser write-flow E2E, throwaway harness).
 
 > **Security note:** authentication for the write endpoints is intentionally deferred — the POST endpoints are open. Restrict access before exposing them publicly. See `docs/superpowers/specs/2026-09-23-stage-03-write-back-google-sheets-design.md`.
+
+## Stage 04 — Multi-view navigation
+
+The single-view dashboard is now a hash-routed single-page app: every sidebar destination opens a real, data-backed view. `location.hash` is the single source of truth, so every view is deep-linkable, browser back/forward works, and an unknown hash falls back to the Dashboard.
+
+Routes:
+
+| Hash | View |
+|---|---|
+| `/#dashboard` | KPIs, collection donut, readiness, recent payments, activity |
+| `/#students` | Full student table with live search (name / class / ID) |
+| `/#payments` | Full payments table + Cash / MTN MoMo / Telecel method-summary chips |
+| `/#books` | Books table with price and low-stock flag |
+| `/#inventory` | Stock table with OK / Low / Out pills + summary cards |
+| `/#issuing` | Issue-ready students + per-book stock availability |
+| `/#reports` | Collections by method, by class, outstanding balances, stock summary |
+| `/#settings` | Config surface (year, daily target, currency) + offline / freshness status |
+
+Architecture:
+
+- **`js/view-models.js`** (new, pure) — derived-data builders shared by the view renderers: `methodSummary`, `classTotals`, `stockStatus`, `outstandingList`, `studentOutstanding`, plus the pure `pageForHash` router mapper. No DOM, no fetch — unit-tested in `scripts/test.js`.
+- **`CEC.getAllData()`** (`js/data-access.js`) — the 5-tab dataset (Students, Payments, Activity, Books, Config) is now fetched **once per load/refresh** and cached; every view renders from that single shared load, so switching pages is instant with no refetch. `getDashboardData()` keeps its exact previous shape for the Stage 02 renderer, and `clearCache()` drops the shared dataset too.
+- **`js/app.js`** — a small hash router (`hashchange` → show/hide the target `<section class="page">`, set `.nav-item.active`, update the breadcrumb `#pageTitle`, close the mobile sidebar) plus one renderer per page. The old "module is ready for the next implementation stage" toast is gone, and the Dashboard's "View payments →" / "See all →" buttons navigate to `#payments`.
+- **`js/write.js`** — after a successful write it now calls `CEC.refreshAll()` (clear cache → refetch dataset → re-render the **currently active** view), so whichever page you're on repaints after a payment, registration, issue or stock adjustment.
+
+Test locally: `npm test` (unit), plus the throwaway browser harnesses in Temp: `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-browser-e2e.cjs` (dashboard + offline), `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` (write flows), and `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-nav-e2e.cjs` (navigation + deep links + repaint-after-write). See `docs/superpowers/plans/2026-09-24-stage-04-multi-view-navigation.md` and `docs/superpowers/specs/2026-09-24-stage-04-multi-view-navigation-design.md`.
