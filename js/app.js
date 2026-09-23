@@ -152,7 +152,10 @@
         '<input class="search-input" type="search" placeholder="Search students, books, payments…" value="' + esc(prefill) + '">' +
         '<div class="search-results"></div></div>');
       const input = menuRoot.querySelector(".search-input");
-      if (input) input.focus();
+      if (input) {
+        input.focus();
+        runSearch();
+      }
     }
     searchBtn.addEventListener("click", ev => {
       ev.stopPropagation();
