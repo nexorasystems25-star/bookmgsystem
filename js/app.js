@@ -21,10 +21,6 @@
     });
   });
 
-  document.querySelectorAll("[data-action='payment']").forEach(button => {
-    button.addEventListener("click", () => showToast("Payment entry will be wired in a later stage."));
-  });
-
   document.querySelector(".notice-close")?.addEventListener("click", e => {
     e.currentTarget.closest(".notice").remove();
   });
@@ -105,4 +101,7 @@
     console.error("Dashboard load failed:", err);
     showToast("Could not load dashboard data.");
   });
+
+  window.CEC = window.CEC || {};
+  window.CEC.renderDashboard = renderDashboard;
 })();
