@@ -114,6 +114,36 @@
     });
   }
 
+  const notificationBtn = document.querySelector(".notification");
+  function renderBell() {
+    if (!notificationBtn || !currentData) return;
+    const alerts = CEC.viewModels.notifications(viewData());
+    const dot = notificationBtn.querySelector("i");
+    if (dot) dot.hidden = alerts.length === 0;
+  }
+  if (notificationBtn) {
+    bindMenuToggle(notificationBtn, () => {
+      if (!currentData) return "";
+      const alerts = CEC.viewModels.notifications(viewData());
+      return alerts.length
+        ? alerts.map(a =>
+            '<button class="menu-item bell-item" role="menuitem" data-href="' + a.href + '">' +
+              '<span class="bell-icon ' + a.color + '">' + a.icon + "</span>" +
+              "<span><b>" + esc(a.title) + "</b><small>" + esc(a.desc) + "</small>" +
+              (a.timeLabel ? "<small>" + esc(a.timeLabel) + "</small>" : "") +
+              "</span></button>").join("")
+        : '<div class="bell-empty">All clear — no alerts today.</div>';
+    });
+    menuRoot.addEventListener("click", ev => {
+      const item = ev.target.closest("[data-href]");
+      if (!item) return;
+      ev.stopPropagation();
+      closeMenu();
+      location.hash = item.dataset.href;
+    });
+  }
+  renderBell();
+
   function statusPillClass(status) {
     return status === "ready" ? "success" : status === "waiting" ? "warn" : "muted";
   }
@@ -398,6 +428,7 @@
   async function refreshAll() {
     CEC.clearCache();
     await route();
+    renderBell();
   }
 
   const studentSearch = document.getElementById("studentSearch");
