@@ -1588,6 +1588,8 @@ If no repo changes were needed, confirm `git status --short` is clean.
 
 Push the branch, then in the Vercel dashboard for this project add the env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` (and confirm `SPREADSHEET_ID`, which the build already uses). Trigger a deploy. Confirm the functions deploy (Vercel auto-detects `api/*.js`).
 
+> **Build fix (Task 11):** the first Vercel deploy failed with `Cannot find module '/vercel/path0/scripts/sync.js'` — `.vercelignore` was excluding `scripts/`, but `npm run build` (`node scripts/sync.js`) requires it. Updated `.vercelignore` to `scripts/*` + `!scripts/sync.js` (gitignore-style negation) so sync.js stays available at build while test.js/docs remain excluded. Redeploy after pushing.
+
 - [ ] **Step 2: Live smoke test**
 
 On the deployed preview URL:

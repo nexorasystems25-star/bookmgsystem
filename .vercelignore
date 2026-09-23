@@ -11,7 +11,10 @@
 # Documentation
 *.md
 docs/
-scripts/
+
+# CI/test scripts — sync.js MUST stay: npm run build runs node scripts/sync.js
+scripts/*
+!scripts/sync.js
 
 # Transient artifact of sync.js atomic writes (temp + rename)
 data/*.tmp
