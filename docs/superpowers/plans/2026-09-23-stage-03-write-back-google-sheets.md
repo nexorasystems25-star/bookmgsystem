@@ -22,7 +22,7 @@
 - Create: `api/_lib.js` (first increment: pure functions only — no network code yet)
 - Modify: `scripts/test.js` (append new tests)
 
-- [ ] **Step 1: Write the failing tests for the pure helpers**
+- [x] **Step 1: Write the failing tests for the pure helpers**
 
 Append to `scripts/test.js` (before the final `console.log(pass + " tests passed");` line):
 
@@ -40,7 +40,7 @@ test("nextId handles empty tab (header only)", () => {
 });
 
 test("nextId ignores rows with a different prefix", () => {
-  const values = [["id"], ["S002"], ["A007"], ["P004"]];
+  const values = [["id"], ["S002"], ["A007"], ["Q004"]];
   assert.equal(lib.nextId(values, "P"), "P001");
 });
 
@@ -107,12 +107,12 @@ test("colLetter renders spreadsheet column letters", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `node scripts/test.js`
 Expected: new tests FAIL with a `Cannot find module '../api/_lib.js'` error (or similar) for the `require`.
 
-- [ ] **Step 3: Implement the pure helpers**
+- [x] **Step 3: Implement the pure helpers**
 
 Create `api/_lib.js` with exactly this content:
 
@@ -227,12 +227,12 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `node scripts/test.js`
 Expected: all previous tests PASS plus the ~12 new ones; output ends with `<N> tests passed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add api/_lib.js scripts/test.js
