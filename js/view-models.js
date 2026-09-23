@@ -103,17 +103,32 @@
     return Object.keys(set).sort();
   }
 
+  function classKey(s) {
+    return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
+  }
+
   function bookCountForClass(books, className) {
-    const target = String(className || "").trim().toLowerCase().replace(/\s+/g, "");
+    const target = classKey(className);
     if (!target) return 0;
     const counts = {};
     (books || []).forEach(b => {
-      const c = String(b.category || "").trim();
-      if (!c) return;
-      const key = c.toLowerCase().replace(/\s+/g, "");
+      const key = classKey(b.category);
+      if (!key) return;
       counts[key] = (counts[key] || 0) + 1;
     });
     return counts[target] || 0;
+  }
+
+  function classBookInfo(books, className) {
+    const target = classKey(className);
+    const info = { count: 0, fee: 0 };
+    if (!target) return info;
+    (books || []).forEach(b => {
+      if (classKey(b.category) !== target) return;
+      info.count += 1;
+      info.fee += Number(b.price) || 0;
+    });
+    return info;
   }
 
   function availableYears(students, config) {
@@ -232,6 +247,7 @@
     notifications,
     availableYears,
     bookCategories,
-    bookCountForClass
+    bookCountForClass,
+    classBookInfo
   };
 });

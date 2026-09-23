@@ -81,15 +81,10 @@
     if (name === "student") {
       studentBooks = opts.books;
       const classSel = dialogs.student.querySelector("[data-class]");
-      const totalSel = dialogs.student.querySelector("[data-total]");
-      const datalist = document.getElementById("dlgStudentClasses");
-      if (datalist) {
-        datalist.innerHTML = root.viewModels.bookCategories(studentBooks)
-          .map(c => '<option value="' + esc(c) + '"></option>')
-          .join("");
-      }
-      const count = root.viewModels.bookCountForClass(studentBooks, readValue(dialogs.student, "[data-class]"));
-      if (count > 0) totalSel.value = String(count);
+      classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(studentBooks)
+        .map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>")
+        .join("");
+      fillClassFields(classSel.value);
     }
     if (name === "payment" || name === "issue") {
       const studentSel = dialogs[name].querySelector("[data-student]");
@@ -110,10 +105,14 @@
     return el ? el.value : "";
   }
 
-  dialogs.student.querySelector("[data-class]").addEventListener("input", () => {
-    const count = root.viewModels.bookCountForClass(studentBooks, readValue(dialogs.student, "[data-class]"));
-    const totalSel = dialogs.student.querySelector("[data-total]");
-    if (count > 0) totalSel.value = String(count);
+  function fillClassFields(className) {
+    const info = root.viewModels.classBookInfo(studentBooks, className);
+    dialogs.student.querySelector("[data-total]").value = info.count > 0 ? String(info.count) : "";
+    dialogs.student.querySelector("[data-fee]").value = info.fee > 0 ? String(info.fee) : "";
+  }
+
+  dialogs.student.querySelector("[data-class]").addEventListener("change", () => {
+    fillClassFields(readValue(dialogs.student, "[data-class]"));
   });
 
   dialogs.payment.addEventListener("submit", async e => {

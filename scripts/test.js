@@ -638,6 +638,29 @@ test("viewModels.bookCountForClass returns 0 for unknown/empty class", () => {
   assert.equal(vm.bookCountForClass([], "KG 1"), 0);
 });
 
+test("viewModels.classBookInfo sums count and fee per category", () => {
+  const books = [
+    { category: "KG 1", price: "55" },
+    { category: "KG 1", price: "45" },
+    { category: "BS 2", price: "60" }
+  ];
+  assert.deepEqual(vm.classBookInfo(books, "KG 1"), { count: 2, fee: 100 });
+  assert.deepEqual(vm.classBookInfo(books, "BS 2"), { count: 1, fee: 60 });
+});
+
+test("viewModels.classBookInfo matches tolerantly (KG1 vs KG 1)", () => {
+  const books = [{ category: "KG 1", price: "50" }, { category: "BS 2", price: "30" }];
+  assert.deepEqual(vm.classBookInfo(books, "KG1"), { count: 1, fee: 50 });
+  assert.deepEqual(vm.classBookInfo(books, "bs 2"), { count: 1, fee: 30 });
+});
+
+test("viewModels.classBookInfo returns zeroed info for unknown/empty", () => {
+  const books = [{ category: "KG 1", price: "50" }];
+  assert.deepEqual(vm.classBookInfo(books, "JS 1"), { count: 0, fee: 0 });
+  assert.deepEqual(vm.classBookInfo(books, ""), { count: 0, fee: 0 });
+  assert.deepEqual(vm.classBookInfo([], "KG 1"), { count: 0, fee: 0 });
+});
+
 test("viewModels.classifyMethod maps method strings", () => {
   assert.equal(vm.classifyMethod("MTN MoMo"), "momo");
   assert.equal(vm.classifyMethod("Telecel"), "telecel");
