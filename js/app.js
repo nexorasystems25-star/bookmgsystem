@@ -142,7 +142,6 @@
       location.hash = item.dataset.href;
     });
   }
-  renderBell();
 
   function statusPillClass(status) {
     return status === "ready" ? "success" : status === "waiting" ? "warn" : "muted";
@@ -423,12 +422,12 @@
     currentData = await CEC.getAllData();
     if (!activeYear) activeYear = currentData.config.activeYear || "";
     renderers[page](viewData());
+    renderBell();
   }
 
   async function refreshAll() {
     CEC.clearCache();
     await route();
-    renderBell();
   }
 
   const studentSearch = document.getElementById("studentSearch");
