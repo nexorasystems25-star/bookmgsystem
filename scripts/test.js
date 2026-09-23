@@ -645,4 +645,57 @@ test("viewModels.availableYears trims whitespace in years", () => {
   assert.deepEqual(vm.availableYears(students, YEAR_CONFIG), ["2026/2027", "2027/2028"]);
 });
 
+function makeDataset(students, payments) {
+  return {
+    students,
+    payments,
+    activity: [],
+    books: [],
+    config: YEAR_CONFIG,
+    offline: false,
+    lastSynced: ""
+  };
+}
+
+const YEAR_PAYMENTS = [
+  { paymentId: "P1", studentId: "26-1", studentName: "A", className: "JS 1", amount: 100, method: "Cash", date: "2026-09-22", status: "confirmed" },
+  { paymentId: "P2", studentId: "25-1", studentName: "B", className: "JS 1", amount: 200, method: "Cash", date: "2026-09-22", status: "confirmed" },
+  { paymentId: "P3", studentId: "UNKNOWN-9", studentName: "Ghost", className: "JS 2", amount: 50, method: "Cash", date: "2026-09-22", status: "confirmed" }
+];
+
+test("viewModels.filterYear filters students to the year", () => {
+  const out = vm.filterYear(makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS), "2025/2026");
+  assert.deepEqual(out.students.map(s => s.studentId), ["25-1"]);
+});
+
+test("viewModels.filterYear joins payment year via student map", () => {
+  const out = vm.filterYear(makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS), "2025/2026");
+  const ids = out.payments.map(p => p.paymentId).sort();
+  assert.deepEqual(ids, ["P2"]);
+});
+
+test("viewModels.filterYear unmatched payments fall back to config active year", () => {
+  const out = vm.filterYear(makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS), "2026/2027");
+  const ghost = out.payments.find(p => p.paymentId === "P3");
+  assert.equal(ghost.academicYear, "2026/2027");
+});
+
+test("viewModels.filterYear keeps books/config/offline/lastSynced passthrough", () => {
+  const data = makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS);
+  data.books = [{ bookId: "B1", subject: "English", publisher: "X", price: 50, stockQty: 2, lowStockThreshold: 3 }];
+  data.offline = true;
+  data.lastSynced = "2026-09-22T10:00:00Z";
+  const out = vm.filterYear(data, "2025/2026");
+  assert.equal(out.books.length, 1);
+  assert.equal(out.offline, true);
+  assert.equal(out.lastSynced, "2026-09-22T10:00:00Z");
+  assert.equal(out.config.dailyTarget, 100000);
+});
+
+test("viewModels.filterYear attaches academicYear to each filtered payment", () => {
+  const out = vm.filterYear(makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS), "2026/2027");
+  const p = out.payments.find(x => x.paymentId === "P1");
+  assert.equal(p.academicYear, "2026/2027");
+});
+
 console.log(pass + " tests passed");

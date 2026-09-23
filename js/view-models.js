@@ -108,6 +108,31 @@
     return [active].concat(rest);
   }
 
+  function filterYear(dataset, year, opts) {
+    const target = String(year || "").trim();
+    const active = String(((opts && opts.activeYear) || (dataset.config && dataset.config.activeYear)) || "").trim();
+    const students = (dataset.students || []).filter(s => String(s.academicYear || "").trim() === target);
+    const byId = {};
+    students.forEach(s => { byId[String(s.studentId)] = true; });
+    const yearOf = p => (byId[String(p.studentId)] ? target : active);
+    const payments = (dataset.payments || [])
+      .map(pid => {
+        const p = Object.assign({}, pid);
+        p.academicYear = yearOf(p);
+        return p;
+      })
+      .filter(p => p.academicYear === target);
+    return {
+      students,
+      payments,
+      activity: dataset.activity || [],
+      books: dataset.books || [],
+      config: dataset.config || {},
+      offline: dataset.offline,
+      lastSynced: dataset.lastSynced
+    };
+  }
+
   return {
     PAGES,
     pageForHash,
@@ -117,6 +142,7 @@
     stockStatus,
     studentOutstanding,
     outstandingList,
+    filterYear,
     availableYears
   };
 });
