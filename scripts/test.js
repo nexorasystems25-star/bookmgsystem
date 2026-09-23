@@ -181,4 +181,83 @@ test("formatAmount renders currency with thousands separator", () => {
   assert.equal(derive.formatAmount(0, "GH₵"), "GH₵ 0");
 });
 
+const lib = require("../api/_lib.js");
+
+test("nextId returns next suffix after existing max", () => {
+  const values = [["payment_id"], ["P001"], ["P005"], ["P002"]];
+  assert.equal(lib.nextId(values, "P"), "P006");
+});
+
+test("nextId handles empty tab (header only)", () => {
+  assert.equal(lib.nextId([["activity_id"]], "A"), "A001");
+  assert.equal(lib.nextId([], "A"), "A001");
+});
+
+test("nextId ignores rows with a different prefix", () => {
+  const values = [["id"], ["S002"], ["A007"], ["Q004"]];
+  assert.equal(lib.nextId(values, "P"), "P001");
+});
+
+test("recomputeStatus maps zero, partial, and full", () => {
+  assert.equal(lib.recomputeStatus(0, 1200), "not covered");
+  assert.equal(lib.recomputeStatus(700, 1200), "waiting");
+  assert.equal(lib.recomputeStatus(1200, 1200), "ready");
+  assert.equal(lib.recomputeStatus(1500, 1200), "ready");
+});
+
+test("validatePaymentPayload accepts valid input", () => {
+  const r = lib.validatePaymentPayload({ student_id: "S001", amount: "500", method: "MTN MoMo" });
+  assert.equal(r.ok, true);
+  assert.equal(r.payload.amount, 500);
+  assert.match(r.payload.date, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("validatePaymentPayload rejects bad input", () => {
+  assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "0", method: "Cash" }).ok, false);
+  assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "-5", method: "Cash" }).ok, false);
+  assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "10", method: "Visa" }).ok, false);
+  assert.equal(lib.validatePaymentPayload({ amount: "10", method: "Cash" }).ok, false);
+});
+
+test("validateStudentPayload accepts valid input", () => {
+  const r = lib.validateStudentPayload({ name: "Ama Serwaa", class: "JS 1", gender: "female", books_fee: "1400", books_total: "10" });
+  assert.equal(r.ok, true);
+  assert.equal(r.payload.academicYear, "2026/2027");
+});
+
+test("validateStudentPayload rejects bad input", () => {
+  assert.equal(lib.validateStudentPayload({ name: "", class: "JS 1", gender: "female", books_fee: 1, books_total: 1 }).ok, false);
+  assert.equal(lib.validateStudentPayload({ name: "Ama", class: "JS 1", gender: "other", books_fee: 1, books_total: 1 }).ok, false);
+  assert.equal(lib.validateStudentPayload({ name: "Ama", class: "JS 1", gender: "female", books_fee: -1, books_total: 1 }).ok, false);
+});
+
+test("validateIssuePayload accepts valid input and rejects bad", () => {
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 2 }).ok, true);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 0 }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 1.5 }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", qty: 1 }).ok, false);
+});
+
+test("validateStockPayload accepts valid input and rejects bad", () => {
+  assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 20 }).ok, true);
+  assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 0 }).ok, false);
+  assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 1.5 }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_delta: 20 }).ok, false);
+});
+
+test("findRowIndex locates a row by id column", () => {
+  const values = [["student_id", "name"], ["S001", "Abena"], ["S004", "Yaw"]];
+  assert.equal(lib.findRowIndex(values, "student_id", "S004").rowIndex, 3);
+  assert.equal(lib.findRowIndex(values, "student_id", "S999"), null);
+});
+
+test("colLetter renders spreadsheet column letters", () => {
+  assert.equal(lib.colLetter(0), "A");
+  assert.equal(lib.colLetter(5), "F");
+  assert.equal(lib.colLetter(6), "G");
+  assert.equal(lib.colLetter(8), "I");
+  assert.equal(lib.colLetter(25), "Z");
+  assert.equal(lib.colLetter(26), "AA");
+});
+
 console.log(pass + " tests passed");
