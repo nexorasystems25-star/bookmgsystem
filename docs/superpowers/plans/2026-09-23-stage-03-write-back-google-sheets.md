@@ -464,7 +464,7 @@ git commit -m "feat: add Sheets API client with cached OAuth token refresh"
 - Modify: `api/_lib.js` (append `runPayment`, `runStudent`, `runIssue`, `runStock`)
 - Modify: `scripts/test.js` (append runner tests using a fake client)
 
-- [ ] **Step 1: Write failing tests for the runners with a fake client**
+- [x] **Step 1: Write failing tests for the runners with a fake client**
 
 Append to `scripts/test.js`:
 
@@ -581,27 +581,63 @@ test("runStock rejects when result would be negative", async () => {
   });
   const r = await lib.runStock(client, "spr", { book_id: "B005", stockDelta: -10 });
   assert.equal(r.ok, false);
+  assert.match(r.error, /below zero/);
   assert.equal(client.calls.length, 0);
+});
+
+test("cellNum returns 0 for blank cells and throws on non-numeric values", async () => {
+  assert.equal(lib.cellNum(1200), 1200);
+  assert.equal(lib.cellNum("1200"), 1200);
+  assert.equal(lib.cellNum("12.5"), 12.5);
+  assert.equal(lib.cellNum(""), 0);
+  assert.equal(lib.cellNum(undefined), 0);
+  assert.equal(lib.cellNum(null), 0);
+  assert.throws(() => lib.cellNum("abc"), /non-numeric/);
+  assert.throws(() => lib.cellNum("NaN"), /non-numeric/);
+});
+
+test("runIssue rejects when the stock cell is non-numeric (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","abc","10"]]
+  });
+  await assert.rejects(() => lib.runIssue(client, "spr", { student_id: "S001", book_id: "B009", qty: 1 }), /non-numeric/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runStock rejects when the stock cell is non-numeric (no writes)", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","1.2.3","10"]]
+  });
+  await assert.rejects(() => lib.runStock(client, "spr", { book_id: "B009", stockDelta: 1 }), /non-numeric/);
+  assert.equal(client.calls.length, 0, "no writes happened");
 });
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `node scripts/test.js`
 Expected: new tests FAIL with `lib.runPayment is not a function`.
 
-- [ ] **Step 3: Implement the runners**
+- [x] **Step 3: Implement the runners**
 
 Append to `api/_lib.js` (before `module.exports`):
 
 ```js
+function cellNum(v) {
+  if (v === "" || v === undefined || v === null) return 0;
+  const n = Number(v);
+  if (isNaN(n)) throw new Error("Sheet contains a non-numeric value");
+  return n;
+}
+
 async function runPayment(client, spreadsheetId, payload) {
   const students = await client.sheetsGet(spreadsheetId, "Students!A:I");
   const found = findRowIndex(students, "student_id", payload.student_id);
   if (!found) return { ok: false, error: "student_id not found" };
   const row = students[found.rowIndex - 1];
-  const fee = Number(row[5]);
-  const paid = Number(row[6]);
+  const fee = cellNum(row[5]);
+  const paid = cellNum(row[6]);
   const name = row[1];
   const klass = row[2];
   const newPaid = paid + payload.amount;
@@ -644,7 +680,7 @@ async function runIssue(client, spreadsheetId, payload) {
   const foundBook = findRowIndex(books, "book_id", payload.book_id);
   if (!foundBook) return { ok: false, error: "book_id not found" };
   const bookRow = books[foundBook.rowIndex - 1];
-  const stockQty = Number(bookRow[5]);
+  const stockQty = cellNum(bookRow[5]);
   if (payload.qty > stockQty) return { ok: false, error: "insufficient stock: only " + stockQty + " available" };
   const subject = bookRow[2];
   const studentName = students[foundStudent.rowIndex - 1][1];
@@ -662,7 +698,7 @@ async function runStock(client, spreadsheetId, payload) {
   const foundBook = findRowIndex(books, "book_id", payload.book_id);
   if (!foundBook) return { ok: false, error: "book_id not found" };
   const bookRow = books[foundBook.rowIndex - 1];
-  const stockQty = Number(bookRow[5]);
+  const stockQty = cellNum(bookRow[5]);
   const newQty = stockQty + payload.stockDelta;
   if (newQty < 0) return { ok: false, error: "stock cannot go below zero" };
   const subject = bookRow[2];
@@ -677,7 +713,7 @@ async function runStock(client, spreadsheetId, payload) {
 }
 ```
 
-- [ ] **Step 4: Update `module.exports`**
+- [x] **Step 4: Update `module.exports`**
 
 Add `createClient` is already there; append the runners:
 
@@ -690,6 +726,7 @@ module.exports = {
   recomputeStatus,
   colLetter,
   findRowIndex,
+  cellNum,
   validatePaymentPayload,
   validateStudentPayload,
   validateIssuePayload,
@@ -702,17 +739,23 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `node scripts/test.js`
-Expected: all tests PASS (previous count + ~9 new).
+Expected: all tests PASS (previous count + ~11 new) — 50 total (39 baseline + 8 runner tests + 3 cellNum guard tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add api/_lib.js scripts/test.js
 git commit -m "feat: add write-back operation runners (payment, student, issue, stock)"
 ```
+
+> **Amendment (adjudicated — adopted from code-quality review):** bare `Number(row[n])` returns `NaN` for blank/absent cells (the Sheets API omits trailing empty cells in a row). Because `NaN` comparisons are always `false`, `NaN` *silently defeated the two stock guards* (`runIssue` `qty > stockQty` and `runStock` `newQty < 0`) and wrote the literal string `"NaN"` into the live sheet. Fix: `cellNum(v)` — blank (`""`/`undefined`/`null`) → `0`, otherwise throw `"Sheet contains a non-numeric value"` on `NaN` — applied at all four read sites; three new tests pin it (`cellNum` unit; `runIssue`/`runStock` reject on non-numeric stock with zero writes); `assert.match(r.error, /below zero/)` added to the `runStock` negative test. Count becomes 50. Applied after Task 3 reviews as its own commit (`fix: guard numeric reads against NaN in write-back runners`).
+>
+> **Partial-failure semantics (documented — approved, no code change here):** each runner performs 3–4 sequential Sheets calls with no rollback; a mid-flight failure leaves earlier writes persisted, and a retry double-applies money (a second payment row increments `books_paid` again). Acceptable for a single-operator, human-auditable sheet; Vercel does not auto-retry a completed POST. Mitigations adopted into Task 8: `runAndRefresh` repaints the sheet's actual post-attempt state on failure *and* success (clears cache + re-renders before the error surfaces), and dialog submit buttons are disabled for the duration of the POST (submit lock) to kill the double-submit race.
+>
+> Deferred (may defer): floating-point representation of GHS amounts (`Math.round(x*100)/100` before `String()`) — dataset is integer-valued; `makeFakeClient` write-failure injection for pinning partial-application semantics; `assert.match` on the `runIssue` "insufficient stock" message.
 
 ---
 
@@ -1084,9 +1127,12 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
   }
 
   async function runAndRefresh(op, body) {
-    await post(op, body);
-    root.clearCache();
-    await root.renderDashboard();
+    try {
+      await post(op, body);
+    } finally {
+      root.clearCache();
+      await root.renderDashboard();
+    }
   }
 
   root.write = {
@@ -1166,12 +1212,16 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
     if (METHODS.indexOf(method) === -1) return showError(dlg, "Select a payment method.");
     const studentId = readValue(dlg, "[data-student]");
     if (!studentId) return showError(dlg, "Select a student.");
+    const submit = dlg.querySelector("[data-submit]");
+    submit.disabled = true;
     try {
       await root.write.recordPayment({ studentId, amount, method });
       dlg.close();
       showToast("Payment recorded.");
     } catch (err) {
       showError(dlg, err.message);
+    } finally {
+      submit.disabled = false;
     }
   });
 
@@ -1187,12 +1237,16 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
     if (!klass) return showError(dlg, "Class is required.");
     if (GENDERS.indexOf(gender) === -1) return showError(dlg, "Select a gender.");
     if (!(fee >= 0) || !(total >= 0)) return showError(dlg, "Books fee and total must be zero or more.");
+    const submit = dlg.querySelector("[data-submit]");
+    submit.disabled = true;
     try {
       await root.write.registerStudent({ name, className: klass, gender, booksFee: fee, booksTotal: total });
       dlg.close();
       showToast("Student registered.");
     } catch (err) {
       showError(dlg, err.message);
+    } finally {
+      submit.disabled = false;
     }
   });
 
@@ -1207,12 +1261,16 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
     if (!Number.isInteger(qty) || qty < 1) return showError(dlg, "Quantity must be a positive whole number.");
     const bookSell = dlg.querySelector("[data-book]");
     if (qty > Number(bookSell.selectedOptions[0].dataset.stock)) return showError(dlg, "Quantity exceeds current stock.");
+    const submit = dlg.querySelector("[data-submit]");
+    submit.disabled = true;
     try {
       await root.write.issueBooks({ studentId, bookId, qty });
       dlg.close();
       showToast("Books issued.");
     } catch (err) {
       showError(dlg, err.message);
+    } finally {
+      submit.disabled = false;
     }
   });
 
@@ -1223,12 +1281,16 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
     const delta = Number(readValue(dlg, "[data-delta]"));
     if (!bookId) return showError(dlg, "Select a book.");
     if (!Number.isInteger(delta) || delta === 0) return showError(dlg, "Adjustment must be a non-zero whole number (use − to reduce).");
+    const submit = dlg.querySelector("[data-submit]");
+    submit.disabled = true;
     try {
       await root.write.adjustStock({ bookId, stockDelta: delta });
       dlg.close();
       showToast("Stock adjusted.");
     } catch (err) {
       showError(dlg, err.message);
+    } finally {
+      submit.disabled = false;
     }
   });
 
@@ -1297,7 +1359,7 @@ In `index.html`, between the `</main>` end and `<div class="toast"...>` (i.e. af
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-light" data-close>Cancel</button>
-        <button type="submit" class="btn btn-primary">Save payment</button>
+        <button type="submit" class="btn btn-primary" data-submit>Save payment</button>
       </div>
     </form>
   </dialog>
@@ -1319,7 +1381,7 @@ In `index.html`, between the `</main>` end and `<div class="toast"...>` (i.e. af
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-light" data-close>Cancel</button>
-        <button type="submit" class="btn btn-primary">Register</button>
+        <button type="submit" class="btn btn-primary" data-submit>Register</button>
       </div>
     </form>
   </dialog>
@@ -1335,7 +1397,7 @@ In `index.html`, between the `</main>` end and `<div class="toast"...>` (i.e. af
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-light" data-close>Cancel</button>
-        <button type="submit" class="btn btn-primary">Issue</button>
+        <button type="submit" class="btn btn-primary" data-submit>Issue</button>
       </div>
     </form>
   </dialog>
@@ -1350,7 +1412,7 @@ In `index.html`, between the `</main>` end and `<div class="toast"...>` (i.e. af
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-light" data-close>Cancel</button>
-        <button type="submit" class="btn btn-primary">Apply</button>
+        <button type="submit" class="btn btn-primary" data-submit>Apply</button>
       </div>
     </form>
   </dialog>
