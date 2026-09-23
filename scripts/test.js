@@ -245,6 +245,17 @@ test("validateStockPayload accepts valid input and rejects bad", () => {
   assert.equal(lib.validateStockPayload({ stock_delta: 20 }).ok, false);
 });
 
+test("client contract: write.js sends snake_case payloads (camelCase rejected)", () => {
+  assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "5", method: "Cash" }).ok, true);
+  assert.equal(lib.validatePaymentPayload({ studentId: "S001", amount: "5", method: "Cash" }).ok, false);
+  assert.equal(lib.validateStudentPayload({ name: "Ama Serwaa", class: "JS 1", gender: "female", books_fee: "1400", books_total: "10" }).ok, true);
+  assert.equal(lib.validateStudentPayload({ name: "Ama Serwaa", className: "JS 1", gender: "female", booksFee: "1400", booksTotal: "10" }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 2 }).ok, true);
+  assert.equal(lib.validateIssuePayload({ studentId: "S001", bookId: "B001", qty: 2 }).ok, false);
+  assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 20 }).ok, true);
+  assert.equal(lib.validateStockPayload({ bookId: "B001", stockDelta: 20 }).ok, false);
+});
+
 test("findRowIndex locates a row by id column", () => {
   const values = [["student_id", "name"], ["S001", "Abena"], ["S004", "Yaw"]];
   assert.equal(lib.findRowIndex(values, "student_id", "S004").rowIndex, 3);

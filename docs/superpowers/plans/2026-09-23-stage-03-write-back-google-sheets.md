@@ -1597,6 +1597,8 @@ On the deployed preview URL:
 2. Use *Record payment* modal with a small real amount against an existing student; confirm the dashboard KPIs repaint and the sheet gains the row + activity entry.
 3. Try one *Adjust stock* modal action; confirm the book's stock reflects it on the next load.
 
+> **Contract bug found & fixed during live smoke (Task 11):** `js/write.js` posted camelCase payloads (`studentId`, `className`, `bookId`, `stockDelta`) but `api/_lib.js` validators require snake_case (`student_id`, `class`, `book_id`, `stock_delta`) — every dialog write would have failed with "student_id is required"/"book_id is required". Fixed `js/write.js` to send snake_case; added a `client contract` unit test locking camelCase-as-rejected for all four endpoints.
+
 - [x] **Step 3: Add a README Stage 03 section**
 
 Append to `README.md` a concise `## Stage 03 — Write-back` section describing: the four Vercel endpoints + `api/_lib.js`, the `CEC.write.*` / modal surface, the env vars required, and that auth is intentionally deferred (open POSTs) with a pointer to the design doc.

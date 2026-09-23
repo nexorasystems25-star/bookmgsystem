@@ -108,7 +108,7 @@
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.recordPayment({ studentId, amount, method });
+      await root.write.recordPayment({ student_id: studentId, amount, method });
       dlg.close();
       showToast("Payment recorded.");
     } catch (err) {
@@ -133,7 +133,7 @@
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.registerStudent({ name, className: klass, gender, booksFee: fee, booksTotal: total });
+      await root.write.registerStudent({ name, class: klass, gender, books_fee: fee, books_total: total });
       dlg.close();
       showToast("Student registered.");
     } catch (err) {
@@ -157,7 +157,7 @@
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.issueBooks({ studentId, bookId, qty });
+      await root.write.issueBooks({ student_id: studentId, book_id: bookId, qty });
       dlg.close();
       showToast("Books issued.");
     } catch (err) {
@@ -177,7 +177,7 @@
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.adjustStock({ bookId, stockDelta: delta });
+      await root.write.adjustStock({ book_id: bookId, stock_delta: delta });
       dlg.close();
       showToast("Stock adjusted.");
     } catch (err) {
