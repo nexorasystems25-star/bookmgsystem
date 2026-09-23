@@ -895,7 +895,7 @@ git commit -m "feat: add Vercel write-back endpoints"
 
 This creates a scratch spreadsheet, seeds minimal tabs, runs all four operations through the real `_lib`/`createClient` (real network, real OAuth), re-reads via the same Sheets API, and asserts the write effects landed.
 
-- [ ] **Step 1: Write the runner script**
+- [x] **Step 1: Write the runner script**
 
 Create `C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-test.cjs`:
 
@@ -913,24 +913,38 @@ const tokens = JSON.parse(fs.readFileSync(path.join(os.tmpdir(), "opencode", "to
 const env = { client_id: creds.client_id, client_secret: creds.client_secret, refresh_token: tokens.refresh_token };
 const fetcher = globalThis.fetch;
 
-async function createSpreadsheet(title) {
+async function createSpreadsheet(title, tok) {
   const res = await fetcher("https://sheets.googleapis.com/v4/spreadsheets", {
     method: "POST",
-    headers: { Authorization: "Bearer " + tokens.access_token, "Content-Type": "application/json" },
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
     body: JSON.stringify({ properties: { title } })
   });
   const data = await res.json();
   if (!res.ok) throw new Error("create failed: " + JSON.stringify(data));
+  await setupTabs(data.spreadsheetId, tok);
   return data.spreadsheetId;
+}
+
+async function setupTabs(sprId, tok) {
+  const res = await fetcher("https://sheets.googleapis.com/v4/spreadsheets/" + sprId + ":batchUpdate", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests: [
+      { updateSheetProperties: { properties: { sheetId: 0, title: "Students" }, fields: "title" } },
+      { addSheet: { properties: { title: "Payments" } } },
+      { addSheet: { properties: { title: "Activity" } } },
+      { addSheet: { properties: { title: "Books" } } }
+    ] })
+  });
+  if (!res.ok) throw new Error("setupTabs failed: " + res.status);
 }
 
 async function main() {
   const client = lib.createClient(env, fetcher);
-  const sprId = await createSpreadsheet("CEC Stage 03 write test " + Date.now());
+  const tok = await client.getAccessToken();
+  const sprId = await createSpreadsheet("CEC Stage 03 write test " + Date.now(), tok);
   console.log("scratch spreadsheet", sprId);
 
-  // Compare spend? No: seed via a fresh token synchronously. Use one call.
-  const tok = await client.getAccessToken();
   async function seed(sheet, values) {
     const res = await fetcher(
       "https://sheets.googleapis.com/v4/spreadsheets/" + sprId + "/values/" + sheet + "!A1:J50:append?valueInputOption=RAW",
@@ -997,19 +1011,25 @@ async function main() {
 main().then(() => process.exit(0), err => { console.error("FAIL", err); process.exit(1); });
 ```
 
-- [ ] **Step 2: Run the integration test**
+- [x] **Step 2: Run the integration test**
 
 Run: `node "C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-test.cjs"`
 Expected: prints `INTEGRATION OK — spreadsheet <id>` and exits 0. This proves the real write path (OAuth refresh → Sheets API) works end to end.
 
-- [ ] **Step 3: Confirm the unit suite still passes**
+- [x] **Step 3: Confirm the unit suite still passes**
 
 Run: `node scripts/test.js` (in the repo)
 Expected: all tests PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 The runner is a throwaway in Temp — nothing to commit. Confirm `git status --short` shows only the prior Task 4 files committed (clean working tree).
+
+> **Amendment (Task 5):** Runtime hardening of the throwaway harness. Three corrections were required to get a real green run, all confined to `cec-write-test.cjs` in Temp (repo code untouched):
+> 1. `createSpreadsheet` now takes the *refreshed* token (`await client.getAccessToken()`) instead of the stored `tokens.access_token`, which is short-lived and stale on re-runs (401 UNAUTHENTICATED otherwise). Auth in this script is always via live OAuth refresh; the stored access token is informational only.
+> 2. A new `setupTabs(sprId, tok)` step renames the default sheet (sheetId 0) to `Students` and adds `Payments`/`Activity`/`Books` tabs before seeding — a fresh spreadsheet only has `Sheet1`, so seeding the runner/validator tabs 400'd (`INVALID_ARGUMENT`).
+> 3. Environment: `cec-client.json` (Temp) stores credentials under the `installed` block (standard Google installed-app format); the script reads top-level `client_id`/`client_secret`, so the Temp file was given top-level mirrors. Also, the file must be written without a UTF-8 BOM (Node `JSON.parse` rejects the BOM).
+> Result: real green run printed `INTEGRATION OK` and exited 0 (scratch spreadsheet left in place for audit). Unit suite re-confirmed 50/50 pass; working tree clean.
 
 ---
 
