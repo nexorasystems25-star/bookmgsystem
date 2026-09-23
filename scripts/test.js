@@ -746,4 +746,62 @@ test("viewModels.globalSearch empty query returns all-empty groups", () => {
   assert.deepEqual(r.payments, []);
 });
 
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function notificationFixture() {
+  const today = todayStr();
+  return vm.filterYear({
+    students: [
+      { studentId: "S1", name: "Ama", className: "JS 1", academicYear: "2026/2027", status: "ready" },
+      { studentId: "S2", name: "Kofi", className: "JS 1", academicYear: "2026/2027", status: "waiting" },
+      { studentId: "S3", name: "Efua", className: "BS 2", academicYear: "2026/2027", status: "waiting" }
+    ],
+    payments: [
+      { paymentId: "P1", studentId: "S1", amount: 500, date: today, method: "Cash", status: "confirmed" }
+    ],
+    activity: [
+      { activityId: "A1", type: "payment", description: "Payment received from Ama", amount: 500, createdAt: today }
+    ],
+    books: [
+      { bookId: "B1", subject: "Maths", publisher: "P", price: 50, stockQty: 2, lowStockThreshold: 3 },
+      { bookId: "B2", subject: "Science", publisher: "P", price: 60, stockQty: 20, lowStockThreshold: 3 }
+    ],
+    config: { activeYear: "2026/2027", dailyTarget: 1000, currency: "GH₵", lastSynced: "" },
+    offline: false,
+    lastSynced: ""
+  }, "2026/2027");
+}
+
+test("viewModels.notifications reports low stock and waiting students", () => {
+  const n = vm.notifications(notificationFixture());
+  const kinds = n.map(x => x.kind);
+  assert.ok(kinds.indexOf("inventory") !== -1);
+  assert.ok(kinds.indexOf("issuing") !== -1);
+});
+
+test("viewModels.notifications includes daily-target progress", () => {
+  const n = vm.notifications(notificationFixture());
+  const t = n.find(x => x.kind === "payments");
+  assert.ok(t);
+  assert.equal(t.title, "Daily target 50% reached");
+});
+
+test("viewModels.notifications names stock counts", () => {
+  const n = vm.notifications(notificationFixture());
+  const inv = n.find(x => x.kind === "inventory");
+  assert.equal(inv.title, "1 title low on stock");
+});
+
+test("viewModels.notifications returns empty for an empty healthy dataset", () => {
+  const n = vm.notifications(vm.filterYear({
+    students: [], payments: [], activity: [], books: [],
+    config: { activeYear: "2026/2027", dailyTarget: 1000, currency: "GH₵", lastSynced: "" },
+    offline: false, lastSynced: ""
+  }, "2026/2027"));
+  assert.deepEqual(n, []);
+});
+
 console.log(pass + " tests passed");

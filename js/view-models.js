@@ -150,6 +150,52 @@
     };
   }
 
+  function timeAgo(iso) {
+    const t = new Date(String(iso || "")).getTime();
+    if (isNaN(t)) return "";
+    const mins = Math.round((Date.now() - t) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " minute" + (mins === 1 ? "" : "s") + " ago";
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + " hour" + (hrs === 1 ? "" : "s") + " ago";
+    const days = Math.round(hrs / 24);
+    return days + " day" + (days === 1 ? "" : "s") + " ago";
+  }
+
+  function notifications(dataset) {
+    const out = [];
+    const books = dataset.books || [];
+    const low = books.filter(b => b.stockQty <= b.lowStockThreshold).length;
+    if (low > 0) out.push({ id: "low-stock", kind: "inventory", icon: "!", color: "amber", title: low + (low === 1 ? " title low on stock" : " titles low on stock"), desc: "Below or at the restock threshold.", href: "#inventory" });
+
+    const students = dataset.students || [];
+    const waiting = students.filter(s => s.status === "waiting").length;
+    if (waiting > 0) out.push({ id: "waiting", kind: "issuing", icon: "!", color: "warn", title: waiting + (waiting === 1 ? " student waiting for stock" : " students waiting for stock"), desc: "Review stock before the next issuing session.", href: "#issuing" });
+
+    const ready = students.filter(s => s.status === "ready").length;
+    if (ready > 0) out.push({ id: "ready", kind: "issuing", icon: "⇧", color: "green", title: ready + (ready === 1 ? " student ready to issue" : " students ready to issue"), desc: "Cleared to collect their book package.", href: "#issuing" });
+
+    const payments = dataset.payments || [];
+    if (payments.length > 0) {
+      const todayISO = (function () {
+        const d = new Date();
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      })();
+      const todayPay = payments.reduce((s, p) => s + (p.date === todayISO ? p.amount : 0), 0);
+      const target = dataset.config.dailyTarget || 0;
+      const pct = target > 0 ? Math.round((todayPay / target) * 100) : 0;
+      out.push({ id: "target", kind: "payments", icon: "₵", color: pct >= 100 ? "green" : "blue", title: pct >= 100 ? "Daily target reached" : "Daily target " + pct + "% reached", desc: payments.length + " payments recorded in the active year.", href: "#payments" });
+    }
+
+    const activity = (dataset.activity || []).slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    const latest = activity[0];
+    if (latest) {
+      out.push({ id: "activity", kind: "activity", icon: "•", color: "blue", title: "Latest activity", desc: latest.description || "", href: "#payments", timeLabel: timeAgo(latest.createdAt) });
+    }
+
+    return out;
+  }
+
   return {
     PAGES,
     pageForHash,
@@ -161,6 +207,7 @@
     outstandingList,
     filterYear,
     globalSearch,
+    notifications,
     availableYears
   };
 });
