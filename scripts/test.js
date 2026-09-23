@@ -528,4 +528,96 @@ test("runStock rejects when the stock cell is non-numeric (no writes)", async ()
   assert.equal(client.calls.length, 0, "no writes happened");
 });
 
+const vm = require("../js/view-models.js");
+
+const FIXTURE_STUDENTS = [
+  { studentId: "S1", name: "Ama", className: "JS 1", booksTotal: 1200, booksPaid: 1200 },
+  { studentId: "S2", name: "Kwame", className: "JS 1", booksTotal: 1200, booksPaid: 500 },
+  { studentId: "S3", name: "Efua", className: "BS 2", booksTotal: 1400, booksPaid: 0 }
+];
+const FIXTURE_PAYMENTS = [
+  { paymentId: "P1", studentName: "Ama", className: "JS 1", amount: 1000, method: "Cash" },
+  { paymentId: "P2", studentName: "Kwame", className: "JS 1", amount: 2000, method: "MTN MoMo" },
+  { paymentId: "P3", studentName: "Efua", className: "BS 2", amount: 1500, method: "Telecel" },
+  { paymentId: "P4", studentName: "Kwame", className: "JS 1", amount: 500, method: "cash" }
+];
+const FIXTURE_BOOKS = [
+  { bookId: "B1", subject: "English", publisher: "A", stockQty: 20, lowStockThreshold: 5 },
+  { bookId: "B2", subject: "Maths", publisher: "B", stockQty: 4, lowStockThreshold: 5 },
+  { bookId: "B3", subject: "Science", publisher: "C", stockQty: 0, lowStockThreshold: 3 }
+];
+
+test("viewModels.pageForHash maps known hashes", () => {
+  assert.equal(vm.pageForHash("#payments"), "payments");
+  assert.equal(vm.pageForHash("#students"), "students");
+  assert.equal(vm.pageForHash("#reports"), "reports");
+  assert.equal(vm.pageForHash("#settings"), "settings");
+});
+
+test("viewModels.pageForHash falls back to dashboard for empty/unknown", () => {
+  assert.equal(vm.pageForHash(""), "dashboard");
+  assert.equal(vm.pageForHash("#bogus"), "dashboard");
+  assert.equal(vm.pageForHash(null), "dashboard");
+});
+
+test("viewModels.pageForHash is case-insensitive", () => {
+  assert.equal(vm.pageForHash("#INVENTORY"), "inventory");
+});
+
+test("viewModels.methodSummary buckets by method and shares of total", () => {
+  const s = vm.methodSummary(FIXTURE_PAYMENTS);
+  assert.equal(s.length, 3);
+  assert.deepEqual(
+    s.map(r => ({ key: r.key, total: r.total, share: r.share })),
+    [
+      { key: "cash", total: 1500, share: 30 },
+      { key: "momo", total: 2000, share: 40 },
+      { key: "telecel", total: 1500, share: 30 }
+    ]
+  );
+});
+
+test("viewModels.methodSummary on empty list returns zero rows", () => {
+  const s = vm.methodSummary([]);
+  assert.deepEqual(s.map(r => r.total), [0, 0, 0]);
+  assert.deepEqual(s.map(r => r.share), [0, 0, 0]);
+});
+
+test("viewModels.classTotals groups by class and sorts desc", () => {
+  assert.deepEqual(vm.classTotals(FIXTURE_PAYMENTS), [
+    { className: "JS 1", total: 3500 },
+    { className: "BS 2", total: 1500 }
+  ]);
+});
+
+test("viewModels.stockStatus flags OK / Low / Out with counts", () => {
+  const inv = vm.stockStatus(FIXTURE_BOOKS);
+  assert.equal(inv.totalTitles, 3);
+  assert.equal(inv.okCount, 1);
+  assert.equal(inv.lowCount, 1);
+  assert.equal(inv.outCount, 1);
+  assert.deepEqual(inv.rows.map(r => r.status), ["OK", "Low", "Out"]);
+});
+
+test("viewModels.classifyMethod maps method strings", () => {
+  assert.equal(vm.classifyMethod("MTN MoMo"), "momo");
+  assert.equal(vm.classifyMethod("Telecel"), "telecel");
+  assert.equal(vm.classifyMethod("Cash"), "cash");
+  assert.equal(vm.classifyMethod(""), "cash");
+});
+
+test("viewModels.studentOutstanding is never negative", () => {
+  assert.equal(vm.studentOutstanding({ booksTotal: 1200, booksPaid: 500 }), 700);
+  assert.equal(vm.studentOutstanding({ booksTotal: 1200, booksPaid: 1400 }), 0);
+  assert.equal(vm.studentOutstanding({ booksTotal: undefined, booksPaid: 0 }), 0);
+});
+
+test("viewModels.outstandingList filters and sorts desc", () => {
+  assert.deepEqual(vm.outstandingList(FIXTURE_STUDENTS).map(r => r.studentId), ["S3", "S2"]);
+  assert.deepEqual(
+    vm.outstandingList(FIXTURE_STUDENTS).map(r => r.balance),
+    [1400, 700]
+  );
+});
+
 console.log(pass + " tests passed");
