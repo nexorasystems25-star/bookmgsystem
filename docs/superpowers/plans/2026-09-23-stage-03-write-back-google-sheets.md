@@ -247,7 +247,7 @@ git commit -m "feat: add pure write-back helpers (nextId, status, validators)"
 - Modify: `api/_lib.js` (append `createClient`)
 - Modify: `scripts/test.js` (append client tests using a fake `fetch`)
 
-- [ ] **Step 1: Write failing tests for the client with a fake fetch**
+- [x] **Step 1: Write failing tests for the client with a fake fetch**
 
 Append to `scripts/test.js`:
 
@@ -267,7 +267,9 @@ function makeFakeFetch(responses, calls) {
 test("createClient refreshes and caches the access token", async () => {
   const calls = [];
   const fake = makeFakeFetch([
-    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } }
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: {} },
+    { ok: true, status: 200, body: {} }
   ], calls);
   const client = lib.createClient(
     { client_id: "cid", client_secret: "cs", refresh_token: "rt" },
@@ -275,7 +277,7 @@ test("createClient refreshes and caches the access token", async () => {
   );
   await client.sheetsGet("spr123", "Students!A:I");
   await client.sheetsGet("spr123", "Students!A:I");
-  assert.equal(calls.length, 1, "token fetched once");
+  assert.equal(calls.filter((c) => c.url === lib.OAUTH_URL).length, 1, "token fetched once");
   assert.equal(calls[0].url, lib.OAUTH_URL);
   assert.match(calls[0].opts.body, /grant_type=refresh_token/);
   assert.match(calls[0].opts.body, /client_id=cid/);
@@ -291,8 +293,8 @@ test("sheetsGet sends bearer token and returns values array", async () => {
   const values = await client.sheetsGet("spr123", "Students!A:I");
   assert.deepEqual(values, [["student_id"], ["S001"]]);
   const apiCall = calls[1];
-  assert.equal(apiCall.opts.method, "GET");
-  assert.match(apiCall.url, /\/spr123\/values\/Students!A:I$/);
+  assert.equal(apiCall.opts.method || "GET", "GET");
+  assert.match(apiCall.url, /\/spr123\/values\/Students!A%3AI$/);
   assert.equal(apiCall.opts.headers.Authorization, "Bearer tok1");
 });
 
@@ -301,7 +303,6 @@ test("sheetsAppend POSTs rows and sheetsUpdate PUTs values", async () => {
   const valuesCalls = [
     { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
     { ok: true, status: 200, body: {} },
-    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
     { ok: true, status: 200, body: {} }
   ];
   const fake = makeFakeFetch(valuesCalls, calls);
@@ -311,21 +312,40 @@ test("sheetsAppend POSTs rows and sheetsUpdate PUTs values", async () => {
   assert.match(calls[1].url, /:append\?valueInputOption=RAW/);
   assert.equal(calls[1].opts.method, "POST");
   assert.deepEqual(JSON.parse(calls[1].opts.body).values[0].length, 8);
-  assert.match(calls[3].url, /Students!G3\?valueInputOption=RAW/);
-  assert.equal(calls[3].opts.method, "PUT");
+  assert.match(calls[2].url, /Students!G3\?valueInputOption=RAW/);
+  assert.equal(calls[2].opts.method, "PUT");
 });
 
 test("createClient throws on missing env", () => {
   assert.throws(() => lib.createClient({}, () => {}), /GOOGLE_CLIENT_ID/);
 });
+
+test("createClient surfaces the OAuth error description on refresh failure", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: false, status: 400, body: { error_description: "Token has been expired or revoked." } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await assert.rejects(client.sheetsGet("spr123", "Students!A:I"), /Token has been expired or revoked./);
+});
+
+test("sheetsGet reports the Sheets API error message on failure", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: false, status: 404, body: { error: { message: "Requested entity was not found." } } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await assert.rejects(client.sheetsGet("spr123", "BadRange"), /Sheets read failed: Requested entity was not found/);
+});
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `node scripts/test.js`
 Expected: new tests FAIL with `lib.createClient is not a function`.
 
-- [ ] **Step 3: Implement `createClient`**
+- [x] **Step 3: Implement `createClient`**
 
 Append to `api/_lib.js` (before `module.exports`):
 
@@ -348,7 +368,7 @@ function createClient(env, fetchImpl) {
         "&refresh_token=" + encodeURIComponent(env.refresh_token) +
         "&grant_type=refresh_token"
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.access_token) {
       throw new Error("OAuth refresh failed: " + (data.error_description || res.status));
     }
@@ -362,7 +382,7 @@ function createClient(env, fetchImpl) {
       API_BASE + "/" + encodeURIComponent(spreadsheetId) + "/values/" + encodeURIComponent(range),
       { headers: { Authorization: "Bearer " + token } }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets read failed: " + ((data && data.error && data.error.message) || res.status));
     return data && data.values ? data.values : [];
   }
@@ -377,7 +397,7 @@ function createClient(env, fetchImpl) {
         body: JSON.stringify({ majorDimension: "ROWS", values: rows })
       }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets append failed: " + ((data && data.error && data.error.message) || res.status));
     return data;
   }
@@ -392,7 +412,7 @@ function createClient(env, fetchImpl) {
         body: JSON.stringify({ majorDimension: "ROWS", values: values })
       }
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Sheets update failed: " + ((data && data.error && data.error.message) || res.status));
     return data;
   }
@@ -401,7 +421,7 @@ function createClient(env, fetchImpl) {
 }
 ```
 
-- [ ] **Step 4: Update `module.exports`**
+- [x] **Step 4: Update `module.exports`**
 
 In `api/_lib.js`, change the `module.exports` object to add `createClient`:
 
@@ -422,17 +442,19 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `node scripts/test.js`
 Expected: all tests PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add api/_lib.js scripts/test.js
 git commit -m "feat: add Sheets API client with cached OAuth token refresh"
 ```
+
+> **Amendment (code-quality review, Task 2):** four adjudicated test fixes (cache-count via filtered OAuth URL, queue trimmed to 3 with update asserted at `calls[2]`, encoded-URL `%3AI` regex, `opts.method || "GET"`) — all test-only, accepted by spec review. Two error-path tests added. Production also hardened: all four `res.json()` calls are `res.json().catch(() => ({}))` so a non-JSON upstream error body degrades to the `res.status` fallback instead of a `SyntaxError`. Follow-up commit: `fix: guard res.json() against non-JSON upstream error bodies`.
 
 ---
 
