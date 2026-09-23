@@ -14,6 +14,48 @@
     window.__toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
   }
 
+  const menuRoot = document.getElementById("menuRoot");
+  let openMenuEl = null;
+
+  function closeMenu() {
+    if (!openMenuEl) return;
+    openMenuEl.remove();
+    document.querySelectorAll("[aria-expanded]").forEach(b => b.setAttribute("aria-expanded", "false"));
+    openMenuEl = null;
+  }
+
+  function openMenu(anchor, panelHtml) {
+    closeMenu();
+    const rect = anchor.getBoundingClientRect();
+    const panel = document.createElement("div");
+    panel.className = "menu-panel";
+    panel.setAttribute("role", "menu");
+    panel.innerHTML = panelHtml;
+    panel.style.position = "fixed";
+    panel.style.top = Math.max(8, rect.bottom + 6) + "px";
+    panel.style.left = Math.max(8, rect.left) + "px";
+    panel.addEventListener("click", () => {});
+    menuRoot.appendChild(panel);
+    openMenuEl = panel;
+    anchor.setAttribute("aria-expanded", "true");
+  }
+
+  function bindMenuToggle(anchor, buildPanel) {
+    anchor.addEventListener("click", ev => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      if (openMenuEl) closeMenu();
+      else openMenu(anchor, buildPanel());
+    });
+  }
+
+  document.addEventListener("click", ev => {
+    if (openMenuEl && !openMenuEl.contains(ev.target)) closeMenu();
+  });
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") closeMenu();
+  });
+
   mobileMenu?.addEventListener("click", () => sidebar.classList.toggle("open"));
 
   document.querySelector(".notice-close")?.addEventListener("click", e => {
@@ -24,9 +66,8 @@
     btn.addEventListener("click", () => { location.hash = btn.dataset.go; });
   });
 
-  document.querySelectorAll(".workspace-select, .icon-btn, .text-btn, .more-btn, .btn-light, .stock-alert button").forEach(button => {
-    if (button.dataset.action || button.dataset.go || button.classList.contains("notice-close")) return;
-    button.addEventListener("click", () => showToast("This control will be wired during the corresponding implementation stage."));
+  document.querySelectorAll(".more-btn, .btn.btn-light, .profile-mini").forEach(button => {
+    button.addEventListener("click", () => showToast("This control is wired in the Controls stage (export, menus, profile)."));
   });
 
   function statusPillClass(status) {
