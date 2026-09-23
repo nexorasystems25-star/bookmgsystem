@@ -1509,7 +1509,7 @@ git commit -m "feat: add four write modals with dashboard-consistent styling"
 
 Extends the Stage 02 harness pattern (static server on `localhost:8123` + headless Chrome + CDP). Stubs `fetch` for `/api/*` so the modal flow is tested without real writes, and asserts client validation + cache-clear + repaint.
 
-- [ ] **Step 1: Create the harness**
+- [x] **Step 1: Create the harness**
 
 Create `C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` modeled on the Stage 02 harness (`cec-browser-e2e.cjs`). Reuse its server/chrome/CDP plumbing exactly, and add:
 
@@ -1543,7 +1543,7 @@ Create `C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` modeled o
 
 > **AMENDMENT (harness internals only — Temp file, not committed):** `index.html` carries only one `[data-action]` opener (`[data-action="payment"]`). The issue dialog (check 6) has no UI button, so extend the stub with two additions: (1) record every `/api/` call by pushing `{ path, body }` onto `window.__apiCalls` inside the fetch stub (still returning `{ ok: true }` for `/api/`); (2) inject a hidden `<button id="__issueBtn" data-action="issue">` via `MutationObserver` the moment `document.body` exists, so write.js's `[data-action]` binding picks it up before the end-of-body scripts evaluate (the observer callback runs at a microtask checkpoint before the next external script). The harness clicks `#__issueBtn` to exercise the real `openDialog("issue")` → `populate()` path, then asserts `data-stock` on book options and the client-side quantity rejection (no `/api/issue` call).
 
-- [ ] **Step 2: Run the E2E checks**
+- [x] **Step 2: Run the E2E checks**
 
 The harness should drive, in order, and print `PASS`/`FAIL` per check:
 1. Page loads with zero console errors; `document.querySelectorAll("dialog").length === 4`.
@@ -1559,12 +1559,14 @@ Expected at the end: `7/7` style PASS summary (count matching your checks) and e
 
 Re-run the Stage 02 harness (`cec-browser-e2e.cjs`) against the same local server. Expected: 7/7 still PASS (the `app.js`/`data-access.js` changes are additive exports only).
 
-- [ ] **Step 4: Confirm unit suite**
+Result: 5/7 PASS. The 2 failures are both the `paymentsToday === 1200` assertion, which is **fixture date-drift, not a regression** — verified: `derive.js todayISO()` uses the local clock and `buildKpis` sums only `date === today`; the newest fixture/sheet payment row (`P001`) is dated **2026-09-22**, while the run date in Asia/Tokyo is **2026-09-23**, so `paymentsToday` is legitimately 0. The identical result in both live (offline=false) and JSON-fallback (offline=true) modes, plus every other assertion passing (totalStudents=9, readyToIssue=4, donutPct 78%, stockLow 2, recent 5, activity 6, freshness + offline pill, forceOffline reload flag), confirms zero write-back regression. Self-heals on any day a fixture payment is dated the run date.
+
+- [x] **Step 4: Confirm unit suite**
 
 Run: `node scripts/test.js`
 Expected: all tests PASS (previous count + new write-back tests).
 
-- [ ] **Step 5: Commit (if any repo file changed during E2E)**
+- [x] **Step 5: Commit (if any repo file changed during E2E)**
 
 If E2E surfaced a bug and you fixed a repo file, commit it:
 
