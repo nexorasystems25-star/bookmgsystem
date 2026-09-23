@@ -93,6 +93,76 @@ function validateStockPayload(raw) {
   return { ok: true, payload: { book_id: p.book_id, stockDelta: delta } };
 }
 
+function createClient(env, fetchImpl) {
+  const fetcher = fetchImpl || globalThis.fetch;
+  if (!env || !env.client_id || !env.client_secret || !env.refresh_token) {
+    throw new Error("Google OAuth env (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN) is not set");
+  }
+  let cached = null;
+
+  async function getAccessToken() {
+    if (cached && cached.expiresAt > Date.now() + 60000) return cached.value;
+    const res = await fetcher(OAUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body:
+        "client_id=" + encodeURIComponent(env.client_id) +
+        "&client_secret=" + encodeURIComponent(env.client_secret) +
+        "&refresh_token=" + encodeURIComponent(env.refresh_token) +
+        "&grant_type=refresh_token"
+    });
+    const data = await res.json();
+    if (!res.ok || !data.access_token) {
+      throw new Error("OAuth refresh failed: " + (data.error_description || res.status));
+    }
+    cached = { value: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
+    return cached.value;
+  }
+
+  async function sheetsGet(spreadsheetId, range) {
+    const token = await getAccessToken();
+    const res = await fetcher(
+      API_BASE + "/" + encodeURIComponent(spreadsheetId) + "/values/" + encodeURIComponent(range),
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error("Sheets read failed: " + ((data && data.error && data.error.message) || res.status));
+    return data && data.values ? data.values : [];
+  }
+
+  async function sheetsAppend(spreadsheetId, tab, rows) {
+    const token = await getAccessToken();
+    const res = await fetcher(
+      API_BASE + "/" + encodeURIComponent(spreadsheetId) + "/values/" + encodeURIComponent(tab + "!A1:J1") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ majorDimension: "ROWS", values: rows })
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error("Sheets append failed: " + ((data && data.error && data.error.message) || res.status));
+    return data;
+  }
+
+  async function sheetsUpdate(spreadsheetId, range, values) {
+    const token = await getAccessToken();
+    const res = await fetcher(
+      API_BASE + "/" + encodeURIComponent(spreadsheetId) + "/values/" + encodeURIComponent(range) + "?valueInputOption=RAW",
+      {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ majorDimension: "ROWS", values: values })
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error("Sheets update failed: " + ((data && data.error && data.error.message) || res.status));
+    return data;
+  }
+
+  return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate };
+}
+
 module.exports = {
   OAUTH_URL,
   API_BASE,
@@ -104,5 +174,6 @@ module.exports = {
   validatePaymentPayload,
   validateStudentPayload,
   validateIssuePayload,
-  validateStockPayload
+  validateStockPayload,
+  createClient
 };

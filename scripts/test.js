@@ -260,4 +260,72 @@ test("colLetter renders spreadsheet column letters", () => {
   assert.equal(lib.colLetter(26), "AA");
 });
 
+function makeFakeFetch(responses, calls) {
+  return async (url, opts) => {
+    calls.push({ url, opts });
+    const entry = responses.shift();
+    return {
+      ok: entry.ok,
+      status: entry.status,
+      json: async () => entry.body
+    };
+  };
+}
+
+test("createClient refreshes and caches the access token", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: {} },
+    { ok: true, status: 200, body: {} }
+  ], calls);
+  const client = lib.createClient(
+    { client_id: "cid", client_secret: "cs", refresh_token: "rt" },
+    fake
+  );
+  await client.sheetsGet("spr123", "Students!A:I");
+  await client.sheetsGet("spr123", "Students!A:I");
+  assert.equal(calls.filter((c) => c.url === lib.OAUTH_URL).length, 1, "token fetched once");
+  assert.equal(calls[0].url, lib.OAUTH_URL);
+  assert.match(calls[0].opts.body, /grant_type=refresh_token/);
+  assert.match(calls[0].opts.body, /client_id=cid/);
+});
+
+test("sheetsGet sends bearer token and returns values array", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: { values: [["student_id"], ["S001"]] } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  const values = await client.sheetsGet("spr123", "Students!A:I");
+  assert.deepEqual(values, [["student_id"], ["S001"]]);
+  const apiCall = calls[1];
+  assert.equal(apiCall.opts.method || "GET", "GET");
+  assert.match(apiCall.url, /\/spr123\/values\/Students!A%3AI$/);
+  assert.equal(apiCall.opts.headers.Authorization, "Bearer tok1");
+});
+
+test("sheetsAppend POSTs rows and sheetsUpdate PUTs values", async () => {
+  const calls = [];
+  const valuesCalls = [
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: {} },
+    { ok: true, status: 200, body: {} }
+  ];
+  const fake = makeFakeFetch(valuesCalls, calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await client.sheetsAppend("spr123", "Payments", [["P009", "S001", "Abena", "BS 1A", "500", "Cash", "2026-09-23", "confirmed"]]);
+  await client.sheetsUpdate("spr123", "Students!G3", [["1200"]]);
+  assert.match(calls[1].url, /:append\?valueInputOption=RAW/);
+  assert.equal(calls[1].opts.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].opts.body).values[0].length, 8);
+  assert.match(calls[2].url, /Students!G3\?valueInputOption=RAW/);
+  assert.equal(calls[2].opts.method, "PUT");
+});
+
+test("createClient throws on missing env", () => {
+  assert.throws(() => lib.createClient({}, () => {}), /GOOGLE_CLIENT_ID/);
+});
+
 console.log(pass + " tests passed");
