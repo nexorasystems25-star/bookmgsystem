@@ -1361,7 +1361,7 @@ git commit -m "feat: write.js modal wiring and CEC.write API"
 - Modify: `index.html` (add four `<dialog>` blocks before the toast div)
 - Modify: `css/app.css` (append modal styles)
 
-- [ ] **Step 1: Add the four dialogs**
+- [x] **Step 1: Add the four dialogs**
 
 In `index.html`, between the `</main>` end and `<div class="toast"...>` (i.e. after `</div>` that closes app-shell, before the toast), insert:
 
@@ -1446,7 +1446,7 @@ Then, in `js/write.js` Task 8's `populate()` for `issue`/`stock`, the book optio
         .map(b => '<option value="' + esc(b.bookId) + '" data-stock="' + b.stockQty + '">' + esc(b.subject) + " — " + esc(b.publisher) + " (stock " + b.stockQty + ")</option>")
 ```
 
-- [ ] **Step 2: Append modal styles to `css/app.css`**
+- [x] **Step 2: Append modal styles to `css/app.css`**
 
 Append this block to `css/app.css`:
 
@@ -1493,7 +1493,7 @@ Append this block to `css/app.css`:
 
 Run: `node --check js/write.js` again (the `data-stock` change), then open `index.html` via the Task 10 harness. Confirm four dialogs exist in the DOM (`document.querySelectorAll("dialog").length === 4`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html js/write.js css/app.css
