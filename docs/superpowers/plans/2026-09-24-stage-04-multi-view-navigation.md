@@ -1263,4 +1263,4 @@ git commit -m "docs: stage 04 shipped, tick plan and smoke notes"
 - [x] `js/write.js` repaints via `root.refreshAll()`.
 - [x] Stage 02/03 regression harnesses still green; new nav harness green.
 - [x] Deployed deep links + nav switching + post-write repaint verified on Vercel.
-- [ ] README Stage 04 section added; spec checklist ticked; final commit pushed.
+- [x] README Stage 04 section added; spec checklist ticked; final commit pushed.
