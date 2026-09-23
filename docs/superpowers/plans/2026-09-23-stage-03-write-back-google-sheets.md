@@ -1584,13 +1584,15 @@ If no repo changes were needed, confirm `git status --short` is clean.
 **Files:**
 - Modify: `README.md` (Stage 03 section)
 
-- [ ] **Step 1: Deploy to Vercel**
+- [x] **Step 1: Deploy to Vercel**
 
 Push the branch, then in the Vercel dashboard for this project add the env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` (and confirm `SPREADSHEET_ID`, which the build already uses). Trigger a deploy. Confirm the functions deploy (Vercel auto-detects `api/*.js`).
 
 > **Build fix (Task 11):** the first Vercel deploy failed with `Cannot find module '/vercel/path0/scripts/sync.js'` — `.vercelignore` was excluding `scripts/`, but `npm run build` (`node scripts/sync.js`) requires it. Updated `.vercelignore` to `scripts/*` + `!scripts/sync.js` (gitignore-style negation) so sync.js stays available at build while test.js/docs remain excluded. Redeploy after pushing.
+>
+> **gviz caching fix (Task 11):** after the smoke write the deployed dashboard did not repaint — Google's unauthenticated `gviz/tq` read endpoint serves a server-side-cached snapshot (new rows appear but the written cells show blank) for minutes+. Switched the app read path (`js/data-access.js`) and `scripts/sync.js` from `gviz/tq?sheet=` to the download `export?format=csv&gid=` endpoint, which reflects Sheets API writes immediately. Because `export` needs numeric tab gids (and they differ per spreadsheet), added a `sheetsMeta(spreadsheetId)` client method (`api/_lib.js`) that maps tab title → gid via the Sheets metadata API; `sync.js` resolves gids at build (OAuth env vars are present on Vercel) and persists them into `data/meta.json.tabs`. A committed `tabs` map serves as fallback, and the code falls back to gviz when no gid is known. Verified live: all 5 tabs fetch fresh via `export`; headless re-run of the post-write page load passed 5/5 (KPI `GHS 5`, both activity events, B001 stock 41, offline=false).
 
-- [ ] **Step 2: Live smoke test**
+- [x] **Step 2: Live smoke test**
 
 On the deployed preview URL:
 1. Open the dashboard — existing live read still works (freshness label shows).
@@ -1598,6 +1600,8 @@ On the deployed preview URL:
 3. Try one *Adjust stock* modal action; confirm the book's stock reflects it on the next load.
 
 > **Contract bug found & fixed during live smoke (Task 11):** `js/write.js` posted camelCase payloads (`studentId`, `className`, `bookId`, `stockDelta`) but `api/_lib.js` validators require snake_case (`student_id`, `class`, `book_id`, `stock_delta`) — every dialog write would have failed with "student_id is required"/"book_id is required". Fixed `js/write.js` to send snake_case; added a `client contract` unit test locking camelCase-as-rejected for all four endpoints.
+>
+> **Smoke results (live, real sheet, headless Chrome, Asia/Tokyo):** write phases passed (payment modal opens/validates/submits, `POST /api/stock` returns `stock_qty:41`); after the export fix the reload phase passed 5/5 — `paymentsToday=5` (dom `GHS 5`), activity feed shows "Payment received from Abena Mensah" + "New stock added for BWP - Mathematics", `fetchOptions` B001 stock = 41, `offline=false`. Sheets-API ground truth confirmed the rows (P009 @ 2026-09-23, A007/A008) and values (S001 `books_paid` 1205, B001 stock 41). Note: smoke runs write real small rows each time; rerun full with care (postreload-only reruns skip writes).
 
 - [x] **Step 3: Add a README Stage 03 section**
 
