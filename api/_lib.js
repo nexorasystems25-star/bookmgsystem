@@ -163,6 +163,87 @@ function createClient(env, fetchImpl) {
   return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate };
 }
 
+async function runPayment(client, spreadsheetId, payload) {
+  const students = await client.sheetsGet(spreadsheetId, "Students!A:I");
+  const found = findRowIndex(students, "student_id", payload.student_id);
+  if (!found) return { ok: false, error: "student_id not found" };
+  const row = students[found.rowIndex - 1];
+  const fee = Number(row[5]);
+  const paid = Number(row[6]);
+  const name = row[1];
+  const klass = row[2];
+  const newPaid = paid + payload.amount;
+  const status = recomputeStatus(newPaid, fee);
+  const payments = await client.sheetsGet(spreadsheetId, "Payments!A:A");
+  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+  const paymentId = nextId(payments, "P");
+  const activityId = nextId(activity, "A");
+  await client.sheetsAppend(spreadsheetId, "Payments", [[
+    paymentId, payload.student_id, name, klass, String(payload.amount), payload.method, payload.date, "confirmed"
+  ]]);
+  await client.sheetsUpdate(spreadsheetId, "Students!" + colLetter(6) + found.rowIndex, [[String(newPaid)]]);
+  await client.sheetsUpdate(spreadsheetId, "Students!" + colLetter(8) + found.rowIndex, [[status]]);
+  await client.sheetsAppend(spreadsheetId, "Activity", [[
+    activityId, "payment", (newPaid >= fee ? "Payment received from " : "Partial payment from ") + name, String(payload.amount), payload.date
+  ]]);
+  return { ok: true, row: { payment_id: paymentId, student_id: payload.student_id, amount: payload.amount, status: "confirmed" } };
+}
+
+async function runStudent(client, spreadsheetId, payload) {
+  const students = await client.sheetsGet(spreadsheetId, "Students!A:A");
+  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+  const studentId = nextId(students, "S");
+  const activityId = nextId(activity, "A");
+  await client.sheetsAppend(spreadsheetId, "Students", [[
+    studentId, payload.name, payload.className, payload.gender, payload.academicYear,
+    String(payload.booksFee), "0", String(payload.booksTotal), "not covered"
+  ]]);
+  await client.sheetsAppend(spreadsheetId, "Activity", [[
+    activityId, "student", "New student record created for " + payload.name, "0", todayISO()
+  ]]);
+  return { ok: true, row: { student_id: studentId } };
+}
+
+async function runIssue(client, spreadsheetId, payload) {
+  const students = await client.sheetsGet(spreadsheetId, "Students!A:B");
+  const foundStudent = findRowIndex(students, "student_id", payload.student_id);
+  if (!foundStudent) return { ok: false, error: "student_id not found" };
+  const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
+  const foundBook = findRowIndex(books, "book_id", payload.book_id);
+  if (!foundBook) return { ok: false, error: "book_id not found" };
+  const bookRow = books[foundBook.rowIndex - 1];
+  const stockQty = Number(bookRow[5]);
+  if (payload.qty > stockQty) return { ok: false, error: "insufficient stock: only " + stockQty + " available" };
+  const subject = bookRow[2];
+  const studentName = students[foundStudent.rowIndex - 1][1];
+  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+  const activityId = nextId(activity, "A");
+  await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + foundBook.rowIndex, [[String(stockQty - payload.qty)]]);
+  await client.sheetsAppend(spreadsheetId, "Activity", [[
+    activityId, "issue", "Books issued to " + studentName, "0", todayISO()
+  ]]);
+  return { ok: true, row: { book_id: payload.book_id, stock_qty: stockQty - payload.qty } };
+}
+
+async function runStock(client, spreadsheetId, payload) {
+  const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
+  const foundBook = findRowIndex(books, "book_id", payload.book_id);
+  if (!foundBook) return { ok: false, error: "book_id not found" };
+  const bookRow = books[foundBook.rowIndex - 1];
+  const stockQty = Number(bookRow[5]);
+  const newQty = stockQty + payload.stockDelta;
+  if (newQty < 0) return { ok: false, error: "stock cannot go below zero" };
+  const subject = bookRow[2];
+  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+  const activityId = nextId(activity, "A");
+  const verb = payload.stockDelta > 0 ? "New stock added for " : "Stock corrected for ";
+  await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + foundBook.rowIndex, [[String(newQty)]]);
+  await client.sheetsAppend(spreadsheetId, "Activity", [[
+    activityId, "stock", verb + subject, "0", todayISO()
+  ]]);
+  return { ok: true, row: { book_id: payload.book_id, stock_qty: newQty } };
+}
+
 module.exports = {
   OAUTH_URL,
   API_BASE,
@@ -175,5 +256,9 @@ module.exports = {
   validateStudentPayload,
   validateIssuePayload,
   validateStockPayload,
-  createClient
+  createClient,
+  runPayment,
+  runStudent,
+  runIssue,
+  runStock
 };

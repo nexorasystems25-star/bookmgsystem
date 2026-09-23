@@ -347,4 +347,119 @@ test("sheetsGet reports the Sheets API error message on failure", async () => {
   await assert.rejects(client.sheetsGet("spr123", "BadRange"), /Sheets read failed: Requested entity was not found/);
 });
 
+function makeFakeClient(gets) {
+  const calls = [];
+  return {
+    calls,
+    sheetsGet: async (id, range) => (range in gets ? gets[range] : []),
+    sheetsAppend: async (id, tab, rows) => { calls.push({ op: "append", tab, rows }); return { ok: true }; },
+    sheetsUpdate: async (id, range, values) => { calls.push({ op: "update", range, values }); return { ok: true }; }
+  };
+}
+
+test("runPayment appends payment, updates student, appends activity", async () => {
+  const stats = lib.recomputeStatus;
+  const client = makeFakeClient({
+    "Students!A:I": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","waiting"]],
+    "Payments!A:A": [["payment_id"],["P008"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runPayment(client, "spr", { student_id: "S001", amount: 400, method: "Cash", date: "2026-09-23" });
+  assert.equal(r.ok, true);
+  assert.equal(r.row.payment_id, "P009");
+  const ops = client.calls;
+  assert.equal(ops[0].op, "append");
+  assert.equal(ops[0].tab, "Payments");
+  assert.deepEqual(ops[0].rows[0].slice(0, 8), ["P009","S001","Abena Mensah","BS 1A","400","Cash","2026-09-23","confirmed"]);
+  assert.equal(ops[1].op, "update");
+  assert.equal(ops[1].range, "Students!G2");
+  assert.deepEqual(ops[1].values, [["1200"]]);
+  assert.equal(ops[2].op, "update");
+  assert.equal(ops[2].range, "Students!I2");
+  assert.deepEqual(ops[2].values, [[stats(1200, 1200)]]);
+  assert.equal(ops[3].op, "append");
+  assert.equal(ops[3].tab, "Activity");
+  assert.match(ops[3].rows[0][2], /Payment received from Abena Mensah/);
+});
+
+test("runPayment uses partial wording when paid is below fee", async () => {
+  const client = makeFakeClient({
+    "Students!A:I": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","status"],["S003","Ama Serwaa","JS 1","female","2026/2027","1400","700","10","waiting"]],
+    "Payments!A:A": [["payment_id"],["P008"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runPayment(client, "spr", { student_id: "S003", amount: 100, method: "Cash", date: "2026-09-23" });
+  assert.equal(r.ok, true);
+  assert.match(client.calls[3].rows[0][2], /Partial payment from Ama Serwaa/);
+});
+
+test("runPayment rejects missing student", async () => {
+  const client = makeFakeClient({ "Students!A:I": [["student_id"]] });
+  const r = await lib.runPayment(client, "spr", { student_id: "S999", amount: 100, method: "Cash" });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /not found/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runStudent appends student + activity", async () => {
+  const client = makeFakeClient({
+    "Students!A:A": [["student_id"],["S009"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runStudent(client, "spr", { name: "Araba Quaicoe", className: "BS 4", gender: "female", booksFee: 1350, booksTotal: 9, academicYear: "2026/2027" });
+  assert.equal(r.ok, true);
+  assert.equal(r.row.student_id, "S010");
+  assert.equal(client.calls[0].tab, "Students");
+  assert.deepEqual(client.calls[0].rows[0].slice(0, 9), ["S010","Araba Quaicoe","BS 4","female","2026/2027","1350","0","9","not covered"]);
+  assert.equal(client.calls[1].tab, "Activity");
+  assert.match(client.calls[1].rows[0][2], /New student record created for Araba Quaicoe/);
+});
+
+test("runIssue decrements stock and appends activity", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B003","Pearson","Integrated Science","Core","92","12","15"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B003", qty: 2 });
+  assert.equal(r.ok, true);
+  assert.equal(r.row.stock_qty, 10);
+  assert.equal(client.calls[0].op, "update");
+  assert.equal(client.calls[0].range, "Books!F2");
+  assert.deepEqual(client.calls[0].values, [["10"]]);
+  assert.equal(client.calls[1].tab, "Activity");
+  assert.match(client.calls[1].rows[0][2], /Books issued to Abena Mensah/);
+});
+
+test("runIssue rejects when stock would go negative", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","BWP - Mathematics","Core","85","2","10"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B001", qty: 5 });
+  assert.equal(r.ok, false);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runStock adjusts stock and appends activity", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B004","Aki-Ola","Social Studies","Elective","70","60","10"]]
+  });
+  const r = await lib.runStock(client, "spr", { book_id: "B004", stockDelta: -5 });
+  assert.equal(r.ok, true);
+  assert.equal(r.row.stock_qty, 55);
+  assert.equal(client.calls[0].range, "Books!F2");
+  assert.deepEqual(client.calls[0].values, [["55"]]);
+  assert.match(client.calls[1].rows[0][2], /Stock corrected for Social Studies/);
+});
+
+test("runStock rejects when result would be negative", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B005","DL","JHS Science Textbook","Core","88","3","10"]]
+  });
+  const r = await lib.runStock(client, "spr", { book_id: "B005", stockDelta: -10 });
+  assert.equal(r.ok, false);
+  assert.equal(client.calls.length, 0);
+});
+
 console.log(pass + " tests passed");
