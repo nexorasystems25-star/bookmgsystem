@@ -43,6 +43,14 @@
 
   let currentData = null;
 
+  let activeYear = "";
+
+  function viewData() {
+    if (!currentData) return currentData;
+    if (!activeYear) activeYear = currentData.config.activeYear || "";
+    return currentData === null ? null : CEC.viewModels.filterYear(currentData, activeYear || currentData.config.activeYear || "");
+  }
+
   function renderShell(data) {
     const fresh = document.getElementById("dataFreshness");
     fresh.textContent = data.lastSynced ? "Synced " + new Date(data.lastSynced).toLocaleString() : "";
@@ -257,7 +265,13 @@
 
   function renderSettings(data) {
     const cur = data.config.currency;
-    document.getElementById("settingsYear").textContent = data.config.activeYear || "—";
+    const sys = data.config.activeYear || "—";
+    const yrEl = document.getElementById("settingsYear");
+    if (!activeYear || activeYear === sys) {
+      yrEl.textContent = sys;
+    } else {
+      yrEl.innerHTML = esc(activeYear) + ' <small class="muted">(system: ' + esc(sys) + ")</small>";
+    }
     document.getElementById("settingsTarget").textContent = CEC.derive.formatAmount(data.config.dailyTarget, cur) + " / day";
     document.getElementById("settingsCurrency").textContent = cur;
     document.getElementById("settingsStatus").textContent = data.offline ? "Offline (snapshot data)" : "Live (Google Sheets)";
@@ -292,7 +306,8 @@
     setActiveNav(page);
     updateShell(page);
     currentData = await CEC.getAllData();
-    renderers[page](currentData);
+    if (!activeYear) activeYear = currentData.config.activeYear || "";
+    renderers[page](viewData());
   }
 
   async function refreshAll() {
@@ -304,7 +319,7 @@
   if (studentSearch) {
     studentSearch.addEventListener("input", () => {
       if (currentData && CEC.viewModels.pageForHash(location.hash) === "students") {
-        renderStudents(currentData);
+        renderStudents(viewData());
       }
     });
   }
