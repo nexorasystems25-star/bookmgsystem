@@ -133,6 +133,23 @@
     };
   }
 
+  function searchHits(items, q, fnMask) {
+    return (items || []).filter(it => fnMask(it).toLowerCase().indexOf(q) !== -1);
+  }
+
+  function globalSearch(data, query) {
+    const q = String(query || "").trim().toLowerCase();
+    if (!q) return { students: [], books: [], payments: [] };
+    const students = searchHits(data.students, q, s => [s.name, s.studentId, s.className].join(" "));
+    const books = searchHits(data.books, q, b => [b.subject, b.publisher, b.category].join(" "));
+    const payments = searchHits(data.payments, q, p => [p.studentName, p.paymentId].join(" "));
+    return {
+      students: students.slice(0, 6),
+      books: books.slice(0, 6),
+      payments: payments.slice(0, 6)
+    };
+  }
+
   return {
     PAGES,
     pageForHash,
@@ -143,6 +160,7 @@
     studentOutstanding,
     outstandingList,
     filterYear,
+    globalSearch,
     availableYears
   };
 });

@@ -698,4 +698,52 @@ test("viewModels.filterYear attaches academicYear to each filtered payment", () 
   assert.equal(p.academicYear, "2026/2027");
 });
 
+const SEARCH_FIXTURE = {
+  students: [
+    { studentId: "S001", name: "Abena Mensah", className: "BS 1A" },
+    { studentId: "S002", name: "Kofi Owusu", className: "JS 1A" }
+  ],
+  books: [
+    { bookId: "B001", subject: "Core English", publisher: "GES Press", category: "Core" },
+    { bookId: "B002", subject: "Mathematics", publisher: "Longman", category: "Core" }
+  ],
+  payments: [
+    { paymentId: "P001", studentName: "Abena Mensah", amount: 1200 },
+    { paymentId: "P002", studentName: "Kofi Owusu", amount: 900 }
+  ]
+};
+
+test("viewModels.globalSearch finds students by name/id/class", () => {
+  const r = vm.globalSearch(SEARCH_FIXTURE, "abena");
+  assert.equal(r.students.length, 1);
+  assert.equal(r.students[0].studentId, "S001");
+  assert.equal(r.books.length, 0);
+  assert.equal(r.payments.length, 1);
+  assert.equal(r.payments[0].paymentId, "P001");
+});
+
+test("viewModels.globalSearch finds books by subject/publisher", () => {
+  const r = vm.globalSearch(SEARCH_FIXTURE, "longman");
+  assert.equal(r.books.length, 1);
+  assert.equal(r.books[0].bookId, "B002");
+});
+
+test("viewModels.globalSearch finds payments by ref/student name", () => {
+  const r = vm.globalSearch(SEARCH_FIXTURE, "P001");
+  assert.equal(r.payments.length, 1);
+  assert.equal(r.payments[0].studentName, "Abena Mensah");
+});
+
+test("viewModels.globalSearch is case-insensitive", () => {
+  const r = vm.globalSearch(SEARCH_FIXTURE, "ABENA");
+  assert.equal(r.students.length, 1);
+});
+
+test("viewModels.globalSearch empty query returns all-empty groups", () => {
+  const r = vm.globalSearch(SEARCH_FIXTURE, "");
+  assert.deepEqual(r.students, []);
+  assert.deepEqual(r.books, []);
+  assert.deepEqual(r.payments, []);
+});
+
 console.log(pass + " tests passed");
