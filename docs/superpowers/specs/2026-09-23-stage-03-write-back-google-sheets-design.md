@@ -37,7 +37,7 @@ Each operation is one function invocation issuing a small sequence of Sheets cal
 
 ### 3.1 `api/payment.js` — Record a payment
 
-**Input:** `{ student_id, amount, method, date? }` (date defaults to today)
+**Input:** `{ student_id, amount, method, date? }` (date defaults to today, always `YYYY-MM-DD`)
 
 **Effects:**
 1. Append to **Payments**: `payment_id: P<next>`, `student_name` + `class` pulled from the Students row, `amount`, `method`, `date`, `status: "confirmed"`.
@@ -98,7 +98,7 @@ Pure Node module exporting:
 | `GOOGLE_REFRESH_TOKEN` | Vercel env | Minter in Stage 02 loopback flow |
 | `SPREADSHEET_ID` | Vercel env | Production sheet |
 
-- Repo `.env` stays gitignored; it only seeds (`for local `_lib` test runs and the scratch-sheet integration runner.
+- Repo `.env` stays gitignored; it only seeds the local `_lib` test runs and the scratch-sheet integration runner.
 - **Caveat:** the OAuth client is in Google testing mode, so refresh tokens expire in ~7 days. For a long-lived production deploy the consent screen must eventually be published (or tokens re-issued). Flagged as ops risk in §8.
 
 ## 6. Frontend
