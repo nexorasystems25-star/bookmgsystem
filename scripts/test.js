@@ -620,4 +620,29 @@ test("viewModels.outstandingList filters and sorts desc", () => {
   );
 });
 
+const YEAR_STUDENTS = [
+  { studentId: "26-1", name: "A", className: "JS 1", academicYear: "2026/2027" },
+  { studentId: "25-1", name: "B", className: "JS 1", academicYear: "2025/2026" }
+];
+const YEAR_CONFIG = { activeYear: "2026/2027", dailyTarget: 100000, currency: "GH₵", lastSynced: "" };
+
+test("viewModels.availableYears de-dupes and leads with active year", () => {
+  const yrs = vm.availableYears(YEAR_STUDENTS, YEAR_CONFIG);
+  assert.deepEqual(yrs, ["2026/2027", "2025/2026"]);
+});
+
+test("viewModels.availableYears guarantees config active year first", () => {
+  const students = [{ studentId: "x", name: "x", className: "x", academicYear: "2024/2025" }];
+  assert.deepEqual(vm.availableYears(students, YEAR_CONFIG), ["2026/2027", "2024/2025"]);
+});
+
+test("viewModels.availableYears returns empty when nothing", () => {
+  assert.deepEqual(vm.availableYears([], { activeYear: "" }), []);
+});
+
+test("viewModels.availableYears trims whitespace in years", () => {
+  const students = [{ studentId: "x", name: "x", className: "x", academicYear: "  2027/2028 " }];
+  assert.deepEqual(vm.availableYears(students, YEAR_CONFIG), ["2026/2027", "2027/2028"]);
+});
+
 console.log(pass + " tests passed");

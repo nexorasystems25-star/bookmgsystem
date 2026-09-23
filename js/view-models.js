@@ -94,6 +94,20 @@
       .sort((a, b) => b.balance - a.balance);
   }
 
+  function availableYears(students, config) {
+    const set = {};
+    (students || []).forEach(s => {
+      const y = String(s.academicYear || "").trim();
+      if (y) set[y] = true;
+    });
+    const active = String((config && config.activeYear) || "").trim();
+    if (active) set[active] = true;
+    const years = Object.keys(set);
+    if (!active) return years;
+    const rest = years.filter(y => y !== active).sort();
+    return [active].concat(rest);
+  }
+
   return {
     PAGES,
     pageForHash,
@@ -102,6 +116,7 @@
     classTotals,
     stockStatus,
     studentOutstanding,
-    outstandingList
+    outstandingList,
+    availableYears
   };
 });
