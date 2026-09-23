@@ -61,7 +61,9 @@ This is used by: workspace selector, notifications, search, more-menus, profile.
 - `payments`: year from the student join (unmatched → config year)
 - `activity`: same join rule
 - `books`, `config`: unchanged (independent of year)
-- All derived renderers (KPIs `buildDashboard`, `methodSummary`, `classTotals`, `stockStatus`, `outstandingList`, `renderReports`, `renderSettings`) operate on the filtered snapshot — no renderer changes needed beyond sourcing from `filterYear(...)`.
+- `offline`, `lastSynced`: **passed through unchanged** from the source dataset — `renderShell(data)` (offline pill + freshness) already reads these and must keep working with the filtered snapshot.
+
+**app.js integration:** `route()` and the `#studentSearch` input handler both pass `currentData` straight into renderers. Change so every renderer call receives `filterYear(currentData, activeYear)` (one place, e.g. a `viewData()` helper in `app.js`); `currentData` stays the full dataset and `refreshAll()` (refetch) is unchanged. Year switch = set `activeYear` + re-render current page only (no refetch).
 
 ### 3.2 Notifications bell (`CEC.viewModels.notifications(data)`)
 
@@ -88,7 +90,7 @@ Pure builder (unit-testable) returning an array of alert objects `{ id, icon, co
 - Group headers shown only when a group has ≥1 hit. Empty query → "Type to search students, books, and payments." No hits → "No results for '<query>'."
 - `Esc` / outside-click closes and restores focus behavior.
 
-### 3.4 Export report (`CEC.export` module in `js/csv.js` or new `js/export.js`)
+### 3.4 Export report (`CEC.export` module in a new `js/export.js`)
 
 A minimal CSV writer (`encodeCell` handling quotes/commas/newlines; joins with CRLF). Reuses the view infrastructure:
 
