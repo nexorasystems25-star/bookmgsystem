@@ -1092,7 +1092,7 @@ git commit -m "feat: expose CEC.clearCache and CEC.fetchOptions for write refres
 **Files:**
 - Modify: `js/app.js` (expose `renderDashboard`, leave all other behavior intact)
 
-- [ ] **Step 1: Make the change**
+- [x] **Step 1: Make the change**
 
 In `js/app.js`, at the end of the IIFE (after the `renderDashboard().catch(...)` block, before the closing `})();`), add:
 
@@ -1101,12 +1101,14 @@ In `js/app.js`, at the end of the IIFE (after the `renderDashboard().catch(...)`
   window.CEC.renderDashboard = renderDashboard;
 ```
 
-- [ ] **Step 2: Syntax-check**
+Also delete the payment-toast stub near the top (the `document.querySelectorAll("[data-action='payment']")` forEach block, currently lines 24-26). Task 8 wires the real dialog-open handler on that same selector, so leaving this stub would make every payment-button click both open the dialog AND show the misleading "will be wired in a later stage" toast.
+
+- [x] **Step 2: Syntax-check**
 
 Run: `node --check js/app.js`
 Expected: no output = valid.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add js/app.js
