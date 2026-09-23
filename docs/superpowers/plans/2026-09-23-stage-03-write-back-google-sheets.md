@@ -1124,7 +1124,7 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
 - Modify: `index.html` (add `<script src="js/write.js"></script>` after `app.js`)
 - Modify: `css/app.css` (append modal styles — done in Task 9)
 
-- [ ] **Step 1: Create `js/write.js`**
+- [x] **Step 1: Create `js/write.js`**
 
 ```js
 (() => {
@@ -1329,7 +1329,7 @@ git commit -m "feat: expose renderDashboard for post-write repaint"
 
 Note: the issue dialog wraps its own stock check by reading the book option's `data-stock` attribute (so the server-side insufficient-stock reject is caught client-side too). The book `<option>` must carry `data-stock="<qty>"` — this is added in Task 9's modal HTML.
 
-- [ ] **Step 2: Add the script tag to `index.html`**
+- [x] **Step 2: Add the script tag to `index.html`**
 
 In `index.html`, change the script block (lines 197-200) to append `write.js` last:
 
@@ -1341,12 +1341,12 @@ In `index.html`, change the script block (lines 197-200) to append `write.js` la
   <script src="js/write.js"></script>
 ```
 
-- [ ] **Step 3: Syntax-check**
+- [x] **Step 3: Syntax-check**
 
 Run: `node --check js/write.js`
 Expected: no output = valid.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add js/write.js index.html
