@@ -78,7 +78,10 @@
     return Object.values(sessionCache).indexOf("live") !== -1;
   }
 
-  async function getDashboardData() {
+  let sessionData = null;
+
+  async function getAllData() {
+    if (sessionData) return sessionData;
     CEC.meta = await loadMeta();
 
     const [studentsRows, paymentsRows, activityRows, booksRows, configRows] = await Promise.all([
@@ -95,14 +98,29 @@
     const books = CEC.derive.normalizeBooks(booksRows);
     const config = CEC.derive.normalizeConfig(configRows);
 
-    const dashboard = CEC.derive.buildDashboard(students, payments, activity, books, config);
-    dashboard.lastSynced = (CEC.meta && CEC.meta.last_synced) || config.lastSynced;
-    dashboard.offline = !anyTabLive();
+    sessionData = {
+      students,
+      payments,
+      activity,
+      books,
+      config,
+      lastSynced: (CEC.meta && CEC.meta.last_synced) || config.lastSynced,
+      offline: !anyTabLive()
+    };
+    return sessionData;
+  }
+
+  async function getDashboardData() {
+    const data = await getAllData();
+    const dashboard = CEC.derive.buildDashboard(data.students, data.payments, data.activity, data.books, data.config);
+    dashboard.lastSynced = data.lastSynced;
+    dashboard.offline = data.offline;
     return dashboard;
   }
 
   function clearCache() {
     Object.keys(sessionCache).forEach(k => delete sessionCache[k]);
+    sessionData = null;
   }
 
   async function fetchOptions() {
@@ -143,6 +161,8 @@
   Object.assign(window.CEC, {
     csv: window.CEC.csv,
     derive: window.CEC.derive,
+    viewModels: window.CEC.viewModels,
+    getAllData: getAllData,
     getDashboardData: getDashboardData,
     clearCache: clearCache,
     fetchOptions: fetchOptions
