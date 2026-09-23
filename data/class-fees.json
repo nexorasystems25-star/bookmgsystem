@@ -1,0 +1,46 @@
+[
+  {
+    "class": "Creche",
+    "fee": "380"
+  },
+  {
+    "class": "Nursery 1",
+    "fee": "390"
+  },
+  {
+    "class": "Nursery 2",
+    "fee": "395"
+  },
+  {
+    "class": "KG 1",
+    "fee": "400"
+  },
+  {
+    "class": "KG 2",
+    "fee": "410"
+  },
+  {
+    "class": "BS 1",
+    "fee": "420"
+  },
+  {
+    "class": "BS 2",
+    "fee": "430"
+  },
+  {
+    "class": "BS 3",
+    "fee": "440"
+  },
+  {
+    "class": "BS 4",
+    "fee": "450"
+  },
+  {
+    "class": "BS 5",
+    "fee": "460"
+  },
+  {
+    "class": "BS 6",
+    "fee": "470"
+  }
+]

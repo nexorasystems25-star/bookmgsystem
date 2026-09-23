@@ -42,6 +42,7 @@
   };
 
   let studentBooks = [];
+  let studentFees = [];
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -80,6 +81,7 @@
     const opts = await root.fetchOptions();
     if (name === "student") {
       studentBooks = opts.books;
+      studentFees = opts.classFees;
       const classSel = dialogs.student.querySelector("[data-class]");
       classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(studentBooks)
         .map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>")
@@ -106,7 +108,7 @@
   }
 
   function fillClassFields(className) {
-    const info = root.viewModels.classBookInfo(studentBooks, className);
+    const info = root.viewModels.classBookInfo(studentBooks, className, studentFees);
     dialogs.student.querySelector("[data-total]").value = info.count > 0 ? String(info.count) : "";
     dialogs.student.querySelector("[data-fee]").value = info.fee > 0 ? String(info.fee) : "";
   }

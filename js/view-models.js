@@ -119,14 +119,16 @@
     return counts[target] || 0;
   }
 
-  function classBookInfo(books, className) {
+  function classBookInfo(books, className, classFees) {
     const target = classKey(className);
     const info = { count: 0, fee: 0 };
     if (!target) return info;
     (books || []).forEach(b => {
       if (classKey(b.category) !== target) return;
       info.count += 1;
-      info.fee += Number(b.price) || 0;
+    });
+    (classFees || []).forEach(f => {
+      if (classKey(f.className) === target && info.fee === 0) info.fee = f.fee;
     });
     return info;
   }
@@ -164,6 +166,7 @@
       payments,
       activity: dataset.activity || [],
       books: dataset.books || [],
+      classFees: dataset.classFees || [],
       config: dataset.config || {},
       offline: dataset.offline,
       lastSynced: dataset.lastSynced

@@ -638,27 +638,70 @@ test("viewModels.bookCountForClass returns 0 for unknown/empty class", () => {
   assert.equal(vm.bookCountForClass([], "KG 1"), 0);
 });
 
-test("viewModels.classBookInfo sums count and fee per category", () => {
+test("viewModels.classBookInfo picks fee from classFees sheet", () => {
   const books = [
-    { category: "KG 1", price: "55" },
-    { category: "KG 1", price: "45" },
-    { category: "BS 2", price: "60" }
+    { category: "KG 1" },
+    { category: "KG 1" },
+    { category: "BS 2" }
   ];
-  assert.deepEqual(vm.classBookInfo(books, "KG 1"), { count: 2, fee: 100 });
-  assert.deepEqual(vm.classBookInfo(books, "BS 2"), { count: 1, fee: 60 });
+  const fees = [
+    { className: "KG 1", fee: 400 },
+    { className: "BS 2", fee: 430 }
+  ];
+  assert.deepEqual(vm.classBookInfo(books, "KG 1", fees), { count: 2, fee: 400 });
+  assert.deepEqual(vm.classBookInfo(books, "BS 2", fees), { count: 1, fee: 430 });
 });
 
-test("viewModels.classBookInfo matches tolerantly (KG1 vs KG 1)", () => {
-  const books = [{ category: "KG 1", price: "50" }, { category: "BS 2", price: "30" }];
-  assert.deepEqual(vm.classBookInfo(books, "KG1"), { count: 1, fee: 50 });
-  assert.deepEqual(vm.classBookInfo(books, "bs 2"), { count: 1, fee: 30 });
+test("viewModels.classBookInfo matches fees tolerantly (KG1 vs KG 1)", () => {
+  const books = [{ category: "KG 1" }, { category: "BS 2" }];
+  const fees = [{ className: "KG 1", fee: 400 }, { className: "BS 2", fee: 430 }];
+  assert.deepEqual(vm.classBookInfo(books, "KG1", fees), { count: 1, fee: 400 });
+  assert.deepEqual(vm.classBookInfo(books, "bs 2", fees), { count: 1, fee: 430 });
+});
+
+test("viewModels.classBookInfo fee fallback when no fee row", () => {
+  const books = [{ category: "KG 1" }];
+  assert.deepEqual(vm.classBookInfo(books, "KG 1", []), { count: 1, fee: 0 });
+  assert.deepEqual(vm.classBookInfo(books, "KG 1"), { count: 1, fee: 0 });
 });
 
 test("viewModels.classBookInfo returns zeroed info for unknown/empty", () => {
-  const books = [{ category: "KG 1", price: "50" }];
-  assert.deepEqual(vm.classBookInfo(books, "JS 1"), { count: 0, fee: 0 });
-  assert.deepEqual(vm.classBookInfo(books, ""), { count: 0, fee: 0 });
-  assert.deepEqual(vm.classBookInfo([], "KG 1"), { count: 0, fee: 0 });
+  const books = [{ category: "KG 1" }];
+  const fees = [{ className: "KG 1", fee: 400 }];
+  assert.deepEqual(vm.classBookInfo(books, "JS 1", fees), { count: 0, fee: 0 });
+  assert.deepEqual(vm.classBookInfo(books, "", fees), { count: 0, fee: 0 });
+  assert.deepEqual(vm.classBookInfo([], "KG 1", fees), { count: 0, fee: 0 });
+});
+
+test("derive.normalizeClassFees reads class/fee columns", () => {
+  const rows = [
+    { class: "KG 1", fee: "400" },
+    { class: "BS 2", fee: 430 }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "KG 1", fee: 400 },
+    { className: "BS 2", fee: 430 }
+  ]);
+});
+
+test("derive.normalizeClassFees drops rows with empty fee", () => {
+  const rows = [
+    { class: "Nursery 1", fee: "" },
+    { class: "KG 1", fee: "400" }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "KG 1", fee: 400 }
+  ]);
+});
+
+test("derive.normalizeClassFees rejects foreign rows (e.g. student sheet)", () => {
+  const rows = [
+    { class: "N2", fee: "300", student_id: "S001", name: "Richmond" },
+    { class: "KG 1", fee: "400" }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "KG 1", fee: 400 }
+  ]);
 });
 
 test("viewModels.classifyMethod maps method strings", () => {

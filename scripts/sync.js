@@ -7,6 +7,7 @@ const TABS = {
   Payments: "payments.json",
   Activity: "activity.json",
   Books: "books.json",
+  ClassFees: "class-fees.json",
   Config: "config.json"
 };
 
@@ -81,6 +82,9 @@ async function main() {
     try {
       const text = await fetchCsv(sheet, tabs);
       const objects = csv.rowsToObjects(csv.parseCSV(text));
+      if (sheet === "ClassFees" && !isClassFees(objects)) {
+        throw new Error("ClassFees tab missing or unreadable");
+      }
       writeJsonSafe(dir, file, objects);
       console.log("Synced " + sheet + " -> data/" + file + " (" + objects.length + " rows)");
     } catch (err) {
@@ -91,6 +95,14 @@ async function main() {
 
   writeMeta(nowIso, tabs);
   console.log(offline ? "Sync finished in offline mode." : "Sync complete. last_synced=" + nowIso);
+}
+
+function isClassFees(objects) {
+  return Array.isArray(objects) && objects.length > 0 && objects.some(o =>
+    o && (o.class !== undefined || o.className !== undefined) &&
+    (o.fee !== undefined || o.books_fee !== undefined) &&
+    !o.student_id && !o.name
+  );
 }
 
 async function loadTabGids() {

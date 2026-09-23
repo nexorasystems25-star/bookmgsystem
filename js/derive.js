@@ -81,6 +81,15 @@
     }));
   }
 
+  function normalizeClassFees(rows) {
+    return (rows || [])
+      .filter(r => r && !r.student_id && !r.name && (r.class || r.className) && (r.fee || r.books_fee))
+      .map(r => ({
+        className: String(r.class || r.className || "").trim(),
+        fee: num(r.fee || r.books_fee)
+      }));
+  }
+
   function normalizeConfig(rows) {
     const r = rows[0] || {};
     return {
@@ -232,6 +241,7 @@
     normalizePayments,
     normalizeActivity,
     normalizeBooks,
+    normalizeClassFees,
     normalizeConfig,
     buildReadiness,
     buildKpis,

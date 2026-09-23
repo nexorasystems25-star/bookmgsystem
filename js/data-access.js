@@ -84,11 +84,12 @@
     if (sessionData) return sessionData;
     CEC.meta = await loadMeta();
 
-    const [studentsRows, paymentsRows, activityRows, booksRows, configRows] = await Promise.all([
+    const [studentsRows, paymentsRows, activityRows, booksRows, feesRows, configRows] = await Promise.all([
       fetchTab("Students", "students.json"),
       fetchTab("Payments", "payments.json"),
       fetchTab("Activity", "activity.json"),
       fetchTab("Books", "books.json"),
+      fetchTab("ClassFees", "class-fees.json"),
       fetchTab("Config", "config.json")
     ]);
 
@@ -96,6 +97,7 @@
     const payments = CEC.derive.normalizePayments(paymentsRows);
     const activity = CEC.derive.normalizeActivity(activityRows);
     const books = CEC.derive.normalizeBooks(booksRows);
+    const classFees = CEC.derive.normalizeClassFees(feesRows);
     const config = CEC.derive.normalizeConfig(configRows);
 
     sessionData = {
@@ -103,6 +105,7 @@
       payments,
       activity,
       books,
+      classFees,
       config,
       lastSynced: (CEC.meta && CEC.meta.last_synced) || config.lastSynced,
       offline: !anyTabLive()
@@ -125,13 +128,15 @@
 
   async function fetchOptions() {
     CEC.meta = await loadMeta();
-    const [studentsRows, booksRows] = await Promise.all([
+    const [studentsRows, booksRows, feesRows] = await Promise.all([
       fetchTab("Students", "students.json"),
-      fetchTab("Books", "books.json")
+      fetchTab("Books", "books.json"),
+      fetchTab("ClassFees", "class-fees.json")
     ]);
     return {
       students: CEC.derive.normalizeStudents(studentsRows),
-      books: CEC.derive.normalizeBooks(booksRows)
+      books: CEC.derive.normalizeBooks(booksRows),
+      classFees: CEC.derive.normalizeClassFees(feesRows)
     };
   }
 
