@@ -160,7 +160,26 @@ function createClient(env, fetchImpl) {
     return data;
   }
 
-  return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate };
+  async function sheetsMeta(spreadsheetId) {
+    const token = await getAccessToken();
+    const res = await fetcher(
+      API_BASE + "/" + encodeURIComponent(spreadsheetId) + "?fields=sheets.properties(sheetId,title)",
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error("Sheets metadata failed: " + ((data && data.error && data.error.message) || res.status));
+    const tabs = {};
+    if (data && Array.isArray(data.sheets)) {
+      for (const s of data.sheets) {
+        if (s.properties && s.properties.title) {
+          tabs[s.properties.title] = s.properties.sheetId;
+        }
+      }
+    }
+    return tabs;
+  }
+
+  return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate, sheetsMeta };
 }
 
 function cellNum(v) {

@@ -21,6 +21,19 @@
     );
   }
 
+  function tabUrl(id, sheet, tabs) {
+    const gid = tabs && tabs[sheet];
+    if (gid !== undefined && gid !== null && gid !== "") {
+      return (
+        "https://docs.google.com/spreadsheets/d/" +
+        encodeURIComponent(id) +
+        "/export?format=csv&gid=" +
+        encodeURIComponent(String(gid))
+      );
+    }
+    return gvizUrl(id, sheet);
+  }
+
   async function fetchWithTimeout(url, ms) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
@@ -51,7 +64,7 @@
       return loadLocal(fileName);
     }
     try {
-      const text = await fetchWithTimeout(gvizUrl(CEC.meta.spreadsheet_id, sheetName), TIMEOUT_MS);
+      const text = await fetchWithTimeout(tabUrl(CEC.meta.spreadsheet_id, sheetName, CEC.meta.tabs), TIMEOUT_MS);
       const objects = CEC.csv.rowsToObjects(CEC.csv.parseCSV(text));
       sessionCache[sheetName] = "live";
       return objects;

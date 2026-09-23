@@ -358,6 +358,32 @@ test("sheetsGet reports the Sheets API error message on failure", async () => {
   await assert.rejects(client.sheetsGet("spr123", "BadRange"), /Sheets read failed: Requested entity was not found/);
 });
 
+test("sheetsMeta maps sheet titles to their gid and surfaces API errors", async () => {
+  const okCalls = [];
+  const okFake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: {
+      sheets: [
+        { properties: { sheetId: 0, title: "Students" } },
+        { properties: { sheetId: 1739569805, title: "Payments" } },
+        { properties: { sheetId: 442418462, title: "Books" } }
+      ]
+    } }
+  ], okCalls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, okFake);
+  const tabs = await client.sheetsMeta("spr123");
+  assert.deepEqual(tabs, { Students: 0, Payments: 1739569805, Books: 442418462 });
+  assert.match(okCalls[1].url, /\/spr123\?fields=sheets/);
+
+  const badCalls = [];
+  const badFake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: false, status: 403, body: { error: { message: "The caller does not have permission." } } }
+  ], badCalls);
+  const badClient = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, badFake);
+  await assert.rejects(badClient.sheetsMeta("spr123"), /Sheets metadata failed: The caller does not have permission/);
+});
+
 function makeFakeClient(gets) {
   const calls = [];
   return {
