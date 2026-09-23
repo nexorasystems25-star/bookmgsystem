@@ -70,6 +70,50 @@
     button.addEventListener("click", () => showToast("This control is wired in the Controls stage (export, menus, profile)."));
   });
 
+  function renderWorkspaceYears(anchor) {
+    if (!currentData) {
+      showToast("Data not loaded yet.");
+      return;
+    }
+    const years = CEC.viewModels.availableYears(currentData.students, currentData.config);
+    if (!years.length) {
+      showToast("No academic years found yet.");
+      return;
+    }
+    const cur = activeYear || currentData.config.activeYear || "";
+    openMenu(anchor, years.map(y =>
+      '<button class="menu-item" role="menuitem" data-year="' + esc(y) + '">' +
+        esc(y) +
+        (y === cur ? ' <span class="menu-check">✓</span>' : "") +
+      "</button>").join(""));
+    menuRoot.querySelector('[data-year="' + cur + '"]')?.scrollIntoView({ block: "nearest" });
+  }
+
+  const workspaceSelect = document.querySelector(".workspace-select");
+  if (workspaceSelect) {
+    workspaceSelect.addEventListener("click", ev => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      if (openMenuEl) closeMenu();
+      else renderWorkspaceYears(workspaceSelect);
+    });
+    menuRoot.addEventListener("click", ev => {
+      const item = ev.target.closest("[data-year]");
+      if (!item) return;
+      ev.stopPropagation();
+      const year = item.dataset.year;
+      const b = workspaceSelect.querySelector("b");
+      if (b) b.textContent = year;
+      activeYear = year;
+      closeMenu();
+      if (currentData) {
+        const page = CEC.viewModels.pageForHash(location.hash);
+        renderers[page](viewData());
+      }
+      showToast("Switched to " + year);
+    });
+  }
+
   function statusPillClass(status) {
     return status === "ready" ? "success" : status === "waiting" ? "warn" : "muted";
   }

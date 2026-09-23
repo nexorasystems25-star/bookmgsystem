@@ -109,3 +109,4 @@ section.page[hidden] { display: none; }
 .pill.muted { color: #64748b; background: #eef1f5; }
 .empty-cell { color: #a0a9b6; font-style: italic; }
 .settings-value { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0; }
+.menu-panel{position:fixed;z-index:60;min-width:180px;max-width:300px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(23,32,51,.16);padding:6px;display:flex;flex-direction:column;gap:2px}.menu-item{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;text-align:left;font-size:12px;color:#29364b;padding:8px 10px;border-radius:7px;cursor:pointer}.menu-item:hover{background:#f1f5fb}.menu-check{margin-left:auto;color:var(--primary)}
