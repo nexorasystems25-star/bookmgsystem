@@ -1595,11 +1595,11 @@ On the deployed preview URL:
 2. Use *Record payment* modal with a small real amount against an existing student; confirm the dashboard KPIs repaint and the sheet gains the row + activity entry.
 3. Try one *Adjust stock* modal action; confirm the book's stock reflects it on the next load.
 
-- [ ] **Step 3: Add a README Stage 03 section**
+- [x] **Step 3: Add a README Stage 03 section**
 
 Append to `README.md` a concise `## Stage 03 — Write-back` section describing: the four Vercel endpoints + `api/_lib.js`, the `CEC.write.*` / modal surface, the env vars required, and that auth is intentionally deferred (open POSTs) with a pointer to the design doc.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md
