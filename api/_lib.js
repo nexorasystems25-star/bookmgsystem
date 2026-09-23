@@ -163,13 +163,20 @@ function createClient(env, fetchImpl) {
   return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate };
 }
 
+function cellNum(v) {
+  if (v === "" || v === undefined || v === null) return 0;
+  const n = Number(v);
+  if (isNaN(n)) throw new Error("Sheet contains a non-numeric value");
+  return n;
+}
+
 async function runPayment(client, spreadsheetId, payload) {
   const students = await client.sheetsGet(spreadsheetId, "Students!A:I");
   const found = findRowIndex(students, "student_id", payload.student_id);
   if (!found) return { ok: false, error: "student_id not found" };
   const row = students[found.rowIndex - 1];
-  const fee = Number(row[5]);
-  const paid = Number(row[6]);
+  const fee = cellNum(row[5]);
+  const paid = cellNum(row[6]);
   const name = row[1];
   const klass = row[2];
   const newPaid = paid + payload.amount;
@@ -212,7 +219,7 @@ async function runIssue(client, spreadsheetId, payload) {
   const foundBook = findRowIndex(books, "book_id", payload.book_id);
   if (!foundBook) return { ok: false, error: "book_id not found" };
   const bookRow = books[foundBook.rowIndex - 1];
-  const stockQty = Number(bookRow[5]);
+  const stockQty = cellNum(bookRow[5]);
   if (payload.qty > stockQty) return { ok: false, error: "insufficient stock: only " + stockQty + " available" };
   const subject = bookRow[2];
   const studentName = students[foundStudent.rowIndex - 1][1];
@@ -230,7 +237,7 @@ async function runStock(client, spreadsheetId, payload) {
   const foundBook = findRowIndex(books, "book_id", payload.book_id);
   if (!foundBook) return { ok: false, error: "book_id not found" };
   const bookRow = books[foundBook.rowIndex - 1];
-  const stockQty = Number(bookRow[5]);
+  const stockQty = cellNum(bookRow[5]);
   const newQty = stockQty + payload.stockDelta;
   if (newQty < 0) return { ok: false, error: "stock cannot go below zero" };
   const subject = bookRow[2];
@@ -252,6 +259,7 @@ module.exports = {
   recomputeStatus,
   colLetter,
   findRowIndex,
+  cellNum,
   validatePaymentPayload,
   validateStudentPayload,
   validateIssuePayload,

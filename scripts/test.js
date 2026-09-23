@@ -459,7 +459,36 @@ test("runStock rejects when result would be negative", async () => {
   });
   const r = await lib.runStock(client, "spr", { book_id: "B005", stockDelta: -10 });
   assert.equal(r.ok, false);
+  assert.match(r.error, /below zero/);
   assert.equal(client.calls.length, 0);
+});
+
+test("cellNum returns 0 for blank cells and throws on non-numeric values", async () => {
+  assert.equal(lib.cellNum(1200), 1200);
+  assert.equal(lib.cellNum("1200"), 1200);
+  assert.equal(lib.cellNum("12.5"), 12.5);
+  assert.equal(lib.cellNum(""), 0);
+  assert.equal(lib.cellNum(undefined), 0);
+  assert.equal(lib.cellNum(null), 0);
+  assert.throws(() => lib.cellNum("abc"), /non-numeric/);
+  assert.throws(() => lib.cellNum("NaN"), /non-numeric/);
+});
+
+test("runIssue rejects when the stock cell is non-numeric (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","abc","10"]]
+  });
+  await assert.rejects(() => lib.runIssue(client, "spr", { student_id: "S001", book_id: "B009", qty: 1 }), /non-numeric/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runStock rejects when the stock cell is non-numeric (no writes)", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","1.2.3","10"]]
+  });
+  await assert.rejects(() => lib.runStock(client, "spr", { book_id: "B009", stockDelta: 1 }), /non-numeric/);
+  assert.equal(client.calls.length, 0, "no writes happened");
 });
 
 console.log(pass + " tests passed");
