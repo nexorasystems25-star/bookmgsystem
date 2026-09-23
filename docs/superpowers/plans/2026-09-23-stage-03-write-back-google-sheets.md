@@ -1039,7 +1039,7 @@ The runner is a throwaway in Temp — nothing to commit. Confirm `git status --s
 - Modify: `js/data-access.js` (add three functions + two exports)
 - Modify: `scripts/test.js` (NOT possible for browser `sessionStorage` — instead verify via `node --check` and the browser E2E in Task 10)
 
-- [ ] **Step 1: Make the change**
+- [x] **Step 1: Make the change**
 
 In `js/data-access.js`, inside the IIFE, add these functions after `getDashboardData` (reusing existing `fetchTab` and `loadMeta`):
 
@@ -1073,12 +1073,12 @@ Then extend the existing `Object.assign(window.CEC, { ... })` block:
   });
 ```
 
-- [ ] **Step 2: Syntax-check**
+- [x] **Step 2: Syntax-check**
 
 Run: `node --check js/data-access.js`
 Expected: no output = valid.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add js/data-access.js
