@@ -66,7 +66,7 @@
     btn.addEventListener("click", () => { location.hash = btn.dataset.go; });
   });
 
-  document.querySelectorAll(".more-btn, .btn.btn-light, .profile-mini").forEach(button => {
+  document.querySelectorAll(".more-btn, .btn.btn-light:not([data-close]), .profile-mini").forEach(button => {
     button.addEventListener("click", () => showToast("This control is wired in the Controls stage (export, menus, profile)."));
   });
 
