@@ -1541,6 +1541,8 @@ Create `C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` modeled o
   `;
 ```
 
+> **AMENDMENT (harness internals only — Temp file, not committed):** `index.html` carries only one `[data-action]` opener (`[data-action="payment"]`). The issue dialog (check 6) has no UI button, so extend the stub with two additions: (1) record every `/api/` call by pushing `{ path, body }` onto `window.__apiCalls` inside the fetch stub (still returning `{ ok: true }` for `/api/`); (2) inject a hidden `<button id="__issueBtn" data-action="issue">` via `MutationObserver` the moment `document.body` exists, so write.js's `[data-action]` binding picks it up before the end-of-body scripts evaluate (the observer callback runs at a microtask checkpoint before the next external script). The harness clicks `#__issueBtn` to exercise the real `openDialog("issue")` → `populate()` path, then asserts `data-stock` on book options and the client-side quantity rejection (no `/api/issue` call).
+
 - [ ] **Step 2: Run the E2E checks**
 
 The harness should drive, in order, and print `PASS`/`FAIL` per check:
