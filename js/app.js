@@ -5,30 +5,7 @@
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
-  mobileMenu?.addEventListener("click", () => sidebar.classList.toggle("open"));
-
-  document.querySelectorAll(".nav-item").forEach(link => {
-    link.addEventListener("click", () => {
-      document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
-      link.classList.add("active");
-      const page = link.dataset.page;
-      const title = page === "dashboard" ? "Dashboard" : link.textContent.trim();
-      document.getElementById("pageTitle").textContent = title;
-      sidebar.classList.remove("open");
-      if (page !== "dashboard") {
-        showToast(`${title} module is ready for the next implementation stage.`);
-      }
-    });
-  });
-
-  document.querySelector(".notice-close")?.addEventListener("click", e => {
-    e.currentTarget.closest(".notice").remove();
-  });
-
-  document.querySelectorAll(".workspace-select, .icon-btn, .text-btn, .more-btn, .btn-light, .stock-alert button").forEach(button => {
-    if (button.dataset.action || button.classList.contains("notice-close")) return;
-    button.addEventListener("click", () => showToast("This control will be wired during the corresponding implementation stage."));
-  });
+  const PAGES = CEC.viewModels.PAGES;
 
   function showToast(message) {
     toast.textContent = message;
@@ -37,52 +14,36 @@
     window.__toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
   }
 
-  async function renderDashboard() {
-    const data = await CEC.getDashboardData();
-    const cur = data.currency;
+  mobileMenu?.addEventListener("click", () => sidebar.classList.toggle("open"));
 
-    document.getElementById("metricTotalStudents").textContent = data.kpis.totalStudents;
-    document.getElementById("metricStudentsFoot").textContent = "+" + data.kpis.enrolledThisTerm;
-    document.getElementById("metricPaymentsToday").textContent = CEC.derive.formatAmount(data.kpis.paymentsToday, cur);
-    document.getElementById("metricPaymentsFoot").textContent = data.kpis.dailyPct + "%";
-    document.getElementById("metricReadyToIssue").textContent = data.kpis.readyToIssue;
-    document.getElementById("metricReadyFoot").textContent = data.kpis.waiting;
-    document.getElementById("metricOutstanding").textContent = CEC.derive.formatAmount(data.kpis.outstandingAmount, cur);
-    document.getElementById("metricOutstandingFoot").textContent = "Across " + data.kpis.outstandingCount + " students";
+  document.querySelector(".notice-close")?.addEventListener("click", e => {
+    e.currentTarget.closest(".notice").remove();
+  });
 
-    const chartBars = document.getElementById("chartBars");
-    const chartX = document.getElementById("chartX");
-    const maxTotal = Math.max.apply(null, data.chart.total.concat([1]));
-    chartBars.innerHTML = data.chart.total
-      .map(v => `<i style="height:${Math.round((v / maxTotal) * 100)}%"></i>`)
-      .join("");
-    chartX.innerHTML = data.chart.labels.map(l => `<span>${l}</span>`).join("");
+  document.querySelectorAll("[data-go]").forEach(btn => {
+    btn.addEventListener("click", () => { location.hash = btn.dataset.go; });
+  });
 
-    document.getElementById("donutPct").textContent = data.readiness.coveredPct + "%";
-    document.getElementById("readyCount").textContent = data.readiness.ready;
-    document.getElementById("waitingCount").textContent = data.readiness.waiting;
-    document.getElementById("uncoveredCount").textContent = data.readiness.uncovered;
-    document.getElementById("stockLowCount").textContent = data.stockLowCount;
+  document.querySelectorAll(".workspace-select, .icon-btn, .text-btn, .more-btn, .btn-light, .stock-alert button").forEach(button => {
+    if (button.dataset.action || button.dataset.go || button.classList.contains("notice-close")) return;
+    button.addEventListener("click", () => showToast("This control will be wired during the corresponding implementation stage."));
+  });
 
-    document.getElementById("recentPaymentsBody").innerHTML = data.recentPayments
-      .map(p => `
-        <tr>
-          <td><b>${esc(p.studentName)}</b><small>${esc(p.id)}</small></td>
-          <td>${esc(p.className)}</td>
-          <td>${CEC.derive.formatAmount(p.amount, cur)}</td>
-          <td><span class="method ${p.methodClass}">${esc(p.method)}</span></td>
-          <td><span class="pill success">${esc(p.status)}</span></td>
-        </tr>`)
-      .join("");
+  function statusPillClass(status) {
+    return status === "ready" ? "success" : status === "waiting" ? "warn" : "muted";
+  }
 
-    document.getElementById("activityFeed").innerHTML = data.activityFeed
-      .map(a => `
-        <div class="activity-item">
-          <span class="activity-icon ${a.color}">${a.icon}</span>
-          <div><b>${esc(a.title)}</b><p>${esc(a.description)}</p><small>${a.timeLabel}</small></div>
-        </div>`)
-      .join("");
+  function stockPillClass(status) {
+    return status === "OK" ? "success" : status === "Low" ? "warn" : "out";
+  }
 
+  function emptyRow(cols, label) {
+    return `<tr><td colspan="${cols}" class="empty-cell">${label || "No data yet."}</td></tr>`;
+  }
+
+  let currentData = null;
+
+  function renderShell(data) {
     const fresh = document.getElementById("dataFreshness");
     fresh.textContent = data.lastSynced ? "Synced " + new Date(data.lastSynced).toLocaleString() : "";
 
@@ -97,11 +58,269 @@
     }
   }
 
-  renderDashboard().catch(err => {
+  function renderDashboard(data) {
+    const cur = data.config.currency;
+    const dash = CEC.derive.buildDashboard(data.students, data.payments, data.activity, data.books, data.config);
+
+    document.getElementById("metricTotalStudents").textContent = dash.kpis.totalStudents;
+    document.getElementById("metricStudentsFoot").textContent = "+" + dash.kpis.enrolledThisTerm;
+    document.getElementById("metricPaymentsToday").textContent = CEC.derive.formatAmount(dash.kpis.paymentsToday, cur);
+    document.getElementById("metricPaymentsFoot").textContent = dash.kpis.dailyPct + "%";
+    document.getElementById("metricReadyToIssue").textContent = dash.kpis.readyToIssue;
+    document.getElementById("metricReadyFoot").textContent = dash.kpis.waiting;
+    document.getElementById("metricOutstanding").textContent = CEC.derive.formatAmount(dash.kpis.outstandingAmount, cur);
+    document.getElementById("metricOutstandingFoot").textContent = "Across " + dash.kpis.outstandingCount + " students";
+
+    const chartBars = document.getElementById("chartBars");
+    const chartX = document.getElementById("chartX");
+    const maxTotal = Math.max.apply(null, dash.chart.total.concat([1]));
+    chartBars.innerHTML = dash.chart.total
+      .map(v => `<i style="height:${Math.round((v / maxTotal) * 100)}%"></i>`)
+      .join("");
+    chartX.innerHTML = dash.chart.labels.map(l => `<span>${l}</span>`).join("");
+
+    document.getElementById("donutPct").textContent = dash.readiness.coveredPct + "%";
+    document.getElementById("readyCount").textContent = dash.readiness.ready;
+    document.getElementById("waitingCount").textContent = dash.readiness.waiting;
+    document.getElementById("uncoveredCount").textContent = dash.readiness.uncovered;
+    document.getElementById("stockLowCount").textContent = dash.stockLowCount;
+
+    document.getElementById("recentPaymentsBody").innerHTML = dash.recentPayments
+      .map(p => `
+        <tr>
+          <td><b>${esc(p.studentName)}</b><small>${esc(p.id)}</small></td>
+          <td>${esc(p.className)}</td>
+          <td>${CEC.derive.formatAmount(p.amount, cur)}</td>
+          <td><span class="method ${p.methodClass}">${esc(p.method)}</span></td>
+          <td><span class="pill success">${esc(p.status)}</span></td>
+        </tr>`)
+      .join("");
+
+    document.getElementById("activityFeed").innerHTML = dash.activityFeed
+      .map(a => `
+        <div class="activity-item">
+          <span class="activity-icon ${a.color}">${a.icon}</span>
+          <div><b>${esc(a.title)}</b><p>${esc(a.description)}</p><small>${a.timeLabel}</small></div>
+        </div>`)
+      .join("");
+
+    renderShell(data);
+  }
+
+  function renderStudents(data) {
+    const cur = data.config.currency;
+    const q = document.getElementById("studentSearch").value.trim().toLowerCase();
+    const rows = data.students.filter(s =>
+      !q ||
+      s.name.toLowerCase().indexOf(q) !== -1 ||
+      s.studentId.toLowerCase().indexOf(q) !== -1 ||
+      s.className.toLowerCase().indexOf(q) !== -1
+    );
+    document.getElementById("studentsBody").innerHTML = rows.length
+      ? rows.map(s => {
+          const balance = CEC.viewModels.studentOutstanding(s);
+          return `
+        <tr>
+          <td>${esc(s.studentId)}</td>
+          <td><b>${esc(s.name)}</b></td>
+          <td>${esc(s.className)}</td>
+          <td>${esc(s.gender ? s.gender.charAt(0).toUpperCase() + s.gender.slice(1) : "")}</td>
+          <td>${CEC.derive.formatAmount(s.booksPaid, cur)}</td>
+          <td>${balance > 0 ? CEC.derive.formatAmount(balance, cur) : '<span class="positive">Paid</span>'}</td>
+          <td><span class="pill ${statusPillClass(s.status)}">${esc(s.status)}</span></td>
+        </tr>`;
+        }).join("")
+      : emptyRow(7);
+    document.getElementById("studentCount").textContent = rows.length + " of " + data.students.length;
+  }
+
+  function renderPayments(data) {
+    const cur = data.config.currency;
+    document.getElementById("methodChips").innerHTML = CEC.viewModels.methodSummary(data.payments)
+      .map(m => `
+        <div class="chip">
+          <small>${esc(m.label)}</small>
+          <b>${CEC.derive.formatAmount(m.total, cur)}</b>
+          <span>${m.share}% of collections</span>
+        </div>`)
+      .join("");
+
+    const rows = data.payments.slice().sort((a, b) =>
+      String(b.date).localeCompare(String(a.date)) || String(b.paymentId).localeCompare(String(a.paymentId)));
+    document.getElementById("paymentsBody").innerHTML = rows.length
+      ? rows.map(p => `
+        <tr>
+          <td>${esc(p.paymentId)}</td>
+          <td><b>${esc(p.studentName)}</b><small>${esc(p.studentId)}</small></td>
+          <td>${esc(p.className)}</td>
+          <td>${CEC.derive.formatAmount(p.amount, cur)}</td>
+          <td><span class="method ${CEC.viewModels.classifyMethod(p.method)}">${esc(p.method)}</span></td>
+          <td>${esc(p.date)}</td>
+          <td><span class="pill success">${esc(p.status || "Recorded")}</span></td>
+        </tr>`).join("")
+      : emptyRow(7);
+  }
+
+  function renderBooks(data) {
+    const cur = data.config.currency;
+    document.getElementById("booksBody").innerHTML = data.books.length
+      ? data.books.map(b => `
+        <tr>
+          <td>${esc(b.bookId)}</td>
+          <td><b>${esc(b.subject)}</b><small>${esc(b.category)}</small></td>
+          <td>${esc(b.publisher)}</td>
+          <td>${CEC.derive.formatAmount(b.price, cur)}</td>
+          <td>${b.stockQty}${b.stockQty <= b.lowStockThreshold ? ' <span class="pill warn">Low</span>' : ""}</td>
+        </tr>`).join("")
+      : emptyRow(5);
+  }
+
+  function renderInventory(data) {
+    const inv = CEC.viewModels.stockStatus(data.books);
+    document.getElementById("inventoryCards").innerHTML = [
+      { label: "Total titles", val: inv.totalTitles, cls: "blue", glyph: "▤" },
+      { label: "In stock", val: inv.okCount, cls: "green", glyph: "✓" },
+      { label: "Low stock", val: inv.lowCount, cls: "amber", glyph: "!" },
+      { label: "Out of stock", val: inv.outCount, cls: "red", glyph: "!" }
+    ].map(c => `
+      <article class="metric-card">
+        <div class="metric-top"><span>${c.label}</span><span class="metric-icon ${c.cls}">${c.glyph}</span></div>
+        <strong>${c.val}</strong>
+      </article>`).join("");
+
+    document.getElementById("inventoryBody").innerHTML = inv.rows.length
+      ? inv.rows.map(r => `
+        <tr>
+          <td><b>${esc(r.subject)}</b><small>${esc(r.publisher)}</small></td>
+          <td>${r.stockQty}</td>
+          <td>${r.lowStockThreshold}</td>
+          <td><span class="pill ${stockPillClass(r.status)}">${r.status}</span></td>
+        </tr>`).join("")
+      : emptyRow(4);
+  }
+
+  function renderIssuing(data) {
+    const readiness = CEC.derive.buildReadiness(data.students);
+    document.getElementById("issueReadyCount").textContent = readiness.ready;
+    document.getElementById("issueWaitingCount").textContent = readiness.waiting;
+    document.getElementById("issueUncoveredCount").textContent = readiness.uncovered;
+
+    const ready = data.students.filter(s => s.status === "ready");
+    document.getElementById("issueStudentsBody").innerHTML = ready.length
+      ? ready.map(s => `
+        <tr>
+          <td><b>${esc(s.name)}</b><small>${esc(s.studentId)}</small></td>
+          <td>${esc(s.className)}</td>
+          <td><span class="pill success">Ready</span></td>
+        </tr>`).join("")
+      : emptyRow(3, "No students ready to issue yet.");
+
+    const inv = CEC.viewModels.stockStatus(data.books);
+    document.getElementById("issueBooksBody").innerHTML = inv.rows.length
+      ? inv.rows.map(r => `
+        <tr>
+          <td><b>${esc(r.subject)}</b></td>
+          <td>${r.stockQty}</td>
+          <td><span class="pill ${stockPillClass(r.status)}">${r.status}</span></td>
+        </tr>`).join("")
+      : emptyRow(3);
+  }
+
+  function renderReports(data) {
+    const cur = data.config.currency;
+    const summary = CEC.viewModels.methodSummary(data.payments);
+    const outstandingAmount = data.students.reduce((n, s) => n + CEC.viewModels.studentOutstanding(s), 0);
+    document.getElementById("reportCash").textContent = CEC.derive.formatAmount(summary[0].total, cur);
+    document.getElementById("reportMomo").textContent = CEC.derive.formatAmount(summary[1].total, cur);
+    document.getElementById("reportTelecel").textContent = CEC.derive.formatAmount(summary[2].total, cur);
+    document.getElementById("reportOutstanding").textContent = CEC.derive.formatAmount(outstandingAmount, cur);
+
+    const classRows = CEC.viewModels.classTotals(data.payments);
+    document.getElementById("reportClassBody").innerHTML = classRows.length
+      ? classRows.map(r => `
+        <tr>
+          <td><b>${esc(r.className)}</b></td>
+          <td>${CEC.derive.formatAmount(r.total, cur)}</td>
+        </tr>`).join("")
+      : emptyRow(2);
+
+    const outRows = CEC.viewModels.outstandingList(data.students).slice(0, 10);
+    document.getElementById("reportOutstandingBody").innerHTML = outRows.length
+      ? outRows.map(r => `
+        <tr>
+          <td><b>${esc(r.name)}</b><small>${esc(r.studentId)}</small></td>
+          <td>${esc(r.className)}</td>
+          <td>${CEC.derive.formatAmount(r.balance, cur)}</td>
+        </tr>`).join("")
+      : emptyRow(3);
+  }
+
+  function renderSettings(data) {
+    const cur = data.config.currency;
+    document.getElementById("settingsYear").textContent = data.config.activeYear || "—";
+    document.getElementById("settingsTarget").textContent = CEC.derive.formatAmount(data.config.dailyTarget, cur) + " / day";
+    document.getElementById("settingsCurrency").textContent = cur;
+    document.getElementById("settingsStatus").textContent = data.offline ? "Offline (snapshot data)" : "Live (Google Sheets)";
+  }
+
+  const renderers = {
+    dashboard: renderDashboard,
+    students: renderStudents,
+    payments: renderPayments,
+    books: renderBooks,
+    inventory: renderInventory,
+    issuing: renderIssuing,
+    reports: renderReports,
+    settings: renderSettings
+  };
+
+  function setActiveNav(page) {
+    document.querySelectorAll(".nav-item").forEach(item =>
+      item.classList.toggle("active", item.dataset.page === page));
+    sidebar.classList.remove("open");
+  }
+
+  function updateShell(page) {
+    document.getElementById("pageTitle").textContent = PAGES[page].title;
+    document.querySelectorAll(".page").forEach(sec => {
+      sec.hidden = sec.id !== "page-" + page;
+    });
+  }
+
+  async function route() {
+    const page = CEC.viewModels.pageForHash(location.hash);
+    setActiveNav(page);
+    updateShell(page);
+    currentData = await CEC.getAllData();
+    renderers[page](currentData);
+  }
+
+  async function refreshAll() {
+    CEC.clearCache();
+    await route();
+  }
+
+  const studentSearch = document.getElementById("studentSearch");
+  if (studentSearch) {
+    studentSearch.addEventListener("input", () => {
+      if (currentData && CEC.viewModels.pageForHash(location.hash) === "students") {
+        renderStudents(currentData);
+      }
+    });
+  }
+
+  window.CEC = window.CEC || {};
+  window.CEC.refreshAll = refreshAll;
+
+  window.addEventListener("hashchange", () => {
+    route().catch(err => {
+      console.error("Navigation load failed:", err);
+      showToast("Could not load this view.");
+    });
+  });
+
+  route().catch(err => {
     console.error("Dashboard load failed:", err);
     showToast("Could not load dashboard data.");
   });
-
-  window.CEC = window.CEC || {};
-  window.CEC.renderDashboard = renderDashboard;
 })();

@@ -23,8 +23,7 @@
     try {
       await post(op, body);
     } finally {
-      root.clearCache();
-      await root.renderDashboard();
+      await root.refreshAll();
     }
   }
 
