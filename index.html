@@ -193,6 +193,78 @@
       </section>
     </main>
   </div>
+  <dialog class="modal" id="dlgPayment">
+    <form method="dialog">
+      <div class="modal-head"><h3>Record payment</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <label>Student<select data-student required></select></label>
+        <label>Amount (GHS)<input type="number" data-amount min="0.01" step="0.01" required></label>
+        <label>Method<select data-method>
+          <option value="Cash">Cash</option>
+          <option value="MTN MoMo">MTN MoMo</option>
+          <option value="Telecel">Telecel</option>
+        </select></label>
+        <p class="modal-error" data-error hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-light" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-submit>Save payment</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="dlgStudent">
+    <form method="dialog">
+      <div class="modal-head"><h3>Register student</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <label>Full name<input type="text" data-name required></label>
+        <label>Class<input type="text" data-class placeholder="e.g. JS 1" required></label>
+        <label>Gender<select data-gender>
+          <option value="">Select…</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select></label>
+        <label>Books fee (GHS)<input type="number" data-fee min="0" step="0.01" required></label>
+        <label>Books total<input type="number" data-total min="0" step="1" required></label>
+        <p class="modal-error" data-error hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-light" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-submit>Register</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="dlgIssue">
+    <form method="dialog">
+      <div class="modal-head"><h3>Issue books</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <label>Student<select data-student required></select></label>
+        <label>Book<select data-book required></select></label>
+        <label>Quantity<input type="number" data-qty min="1" step="1" required></label>
+        <p class="modal-error" data-error hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-light" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-submit>Issue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="dlgStock">
+    <form method="dialog">
+      <div class="modal-head"><h3>Adjust stock</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <label>Book<select data-book required></select></label>
+        <label>Adjustment<small>Positive adds stock, negative removes.</small><input type="number" data-delta step="1" required></label>
+        <p class="modal-error" data-error hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-light" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-submit>Apply</button>
+      </div>
+    </form>
+  </dialog>
   <div class="toast" id="toast" role="status"></div>
   <script src="js/csv.js"></script>
   <script src="js/derive.js"></script>

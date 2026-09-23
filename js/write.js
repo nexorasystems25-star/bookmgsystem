@@ -86,7 +86,7 @@
     if (name === "issue" || name === "stock") {
       const bookSel = dialogs[name].querySelector("[data-book]");
       bookSel.innerHTML = '<option value="">Select book…</option>' + opts.books
-        .map(b => '<option value="' + esc(b.bookId) + '">' + esc(b.subject) + " — " + esc(b.publisher) + " (stock " + b.stockQty + ")</option>")
+        .map(b => '<option value="' + esc(b.bookId) + '" data-stock="' + b.stockQty + '">' + esc(b.subject) + " — " + esc(b.publisher) + " (stock " + b.stockQty + ")</option>")
         .join("");
     }
   }
