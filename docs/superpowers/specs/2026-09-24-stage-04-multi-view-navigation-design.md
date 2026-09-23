@@ -16,7 +16,7 @@ This stage makes every nav destination render a real view from the data already 
 
 - **One `index.html`** stays the only page. Each destination gets a hidden `<section class="page">` block; exactly one is visible at a time.
 - The **existing hash links** (`href="#students"`, …) become the router input — zero nav markup changes.
-- A small router in `js/app.js` (or a new `js/router.js` loaded before `app.js`):
+- A small router in `js/app.js` (the file that already owns all navigation wiring):
   - listens to `hashchange` (so browser back/forward and manual URL edits work) and nav clicks,
   - normalizes the hash to a known page id (unknown hash → dashboard),
   - hides all `.page` sections, shows the target, sets `.nav-item.active`, updates the breadcrumb `#pageTitle`,
@@ -24,6 +24,7 @@ This stage makes every nav destination render a real view from the data already 
   - on mobile, closes the sidebar (`sidebar.classList.remove("open")` — existing behavior kept).
 - `location.hash` is the source of truth → views are **deep-linkable** (reload on `#payments` lands on Payments).
 - Active page persists across a write (see §4): re-render stays on the current hash.
+- The old "module is ready for the next implementation stage" toast for `.nav-item` clicks is **removed** — every destination is now real. The dashboard "View payments →" / "See all →" text buttons are rewired to navigate to `#payments` via the router instead of toasting.
 
 ### 2.2 Data: single shared load
 
