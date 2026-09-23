@@ -54,6 +54,8 @@ This is used by: workspace selector, notifications, search, more-menus, profile.
 - `.workspace-select b` label updates to the selected year; subtitles ("Academic year", dot, chevron) unchanged.
 - Single-year data today: list shows one entry; switch is a visible no-op but the plumbing is real and unit-tested with multi-year fixtures.
 
+**Settings display:** `renderSettings` currently fills `settingsYear` from `config.activeYear` (the system year). Since the selected year can differ, the settings page shows the **selected** year as "Active academic year", and when it differs from `config.activeYear` appends a muted line "(system: <config year>)". The filtered snapshot's `config` keeps the real `config.activeYear` untouched — the renderer sources the display value from the active-year state.
+
 **Filtering rules (`filterYear(dataset, year)` in `view-models.js`):**
 - `students`: `academicYear === year`
 - `payments`: year from the student join (unmatched → config year)
