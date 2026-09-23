@@ -88,6 +88,22 @@
     return dashboard;
   }
 
+  function clearCache() {
+    Object.keys(sessionCache).forEach(k => delete sessionCache[k]);
+  }
+
+  async function fetchOptions() {
+    CEC.meta = await loadMeta();
+    const [studentsRows, booksRows] = await Promise.all([
+      fetchTab("Students", "students.json"),
+      fetchTab("Books", "books.json")
+    ]);
+    return {
+      students: CEC.derive.normalizeStudents(studentsRows),
+      books: CEC.derive.normalizeBooks(booksRows)
+    };
+  }
+
   let forceOfflineFlag = false;
   try {
     forceOfflineFlag =
@@ -114,7 +130,9 @@
   Object.assign(window.CEC, {
     csv: window.CEC.csv,
     derive: window.CEC.derive,
-    getDashboardData: getDashboardData
+    getDashboardData: getDashboardData,
+    clearCache: clearCache,
+    fetchOptions: fetchOptions
   });
   window.CEC.meta = { spreadsheet_id: "", last_synced: "" };
 })();
