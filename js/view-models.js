@@ -94,6 +94,28 @@
       .sort((a, b) => b.balance - a.balance);
   }
 
+  function bookCategories(books) {
+    const set = {};
+    (books || []).forEach(b => {
+      const c = String(b.category || "").trim();
+      if (c) set[c] = true;
+    });
+    return Object.keys(set).sort();
+  }
+
+  function bookCountForClass(books, className) {
+    const target = String(className || "").trim().toLowerCase().replace(/\s+/g, "");
+    if (!target) return 0;
+    const counts = {};
+    (books || []).forEach(b => {
+      const c = String(b.category || "").trim();
+      if (!c) return;
+      const key = c.toLowerCase().replace(/\s+/g, "");
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts[target] || 0;
+  }
+
   function availableYears(students, config) {
     const set = {};
     (students || []).forEach(s => {
@@ -208,6 +230,8 @@
     filterYear,
     globalSearch,
     notifications,
-    availableYears
+    availableYears,
+    bookCategories,
+    bookCountForClass
   };
 });

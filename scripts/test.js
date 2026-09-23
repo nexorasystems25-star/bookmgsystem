@@ -599,6 +599,45 @@ test("viewModels.stockStatus flags OK / Low / Out with counts", () => {
   assert.deepEqual(inv.rows.map(r => r.status), ["OK", "Low", "Out"]);
 });
 
+test("viewModels.bookCategories returns sorted distinct categories", () => {
+  const books = [
+    { category: "KG 1" },
+    { category: "BS 2" },
+    { category: "KG 1" },
+    { category: "" }
+  ];
+  assert.deepEqual(vm.bookCategories(books), ["BS 2", "KG 1"]);
+});
+
+test("viewModels.bookCategories returns empty for no books", () => {
+  assert.deepEqual(vm.bookCategories([]), []);
+  assert.deepEqual(vm.bookCategories(null), []);
+});
+
+test("viewModels.bookCountForClass counts books in a category", () => {
+  const books = [
+    { category: "KG 1" },
+    { category: "KG 1" },
+    { category: "BS 2" }
+  ];
+  assert.equal(vm.bookCountForClass(books, "KG 1"), 2);
+  assert.equal(vm.bookCountForClass(books, "BS 2"), 1);
+});
+
+test("viewModels.bookCountForClass matches tolerantly (KG1 vs KG 1)", () => {
+  const books = [{ category: "KG 1" }, { category: "BS 2" }];
+  assert.equal(vm.bookCountForClass(books, "KG1"), 1);
+  assert.equal(vm.bookCountForClass(books, "kg 1"), 1);
+  assert.equal(vm.bookCountForClass(books, "BS2"), 1);
+});
+
+test("viewModels.bookCountForClass returns 0 for unknown/empty class", () => {
+  const books = [{ category: "KG 1" }];
+  assert.equal(vm.bookCountForClass(books, "JS 1"), 0);
+  assert.equal(vm.bookCountForClass(books, ""), 0);
+  assert.equal(vm.bookCountForClass([], "KG 1"), 0);
+});
+
 test("viewModels.classifyMethod maps method strings", () => {
   assert.equal(vm.classifyMethod("MTN MoMo"), "momo");
   assert.equal(vm.classifyMethod("Telecel"), "telecel");

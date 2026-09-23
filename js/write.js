@@ -41,6 +41,8 @@
     stock: document.getElementById("dlgStock")
   };
 
+  let studentBooks = [];
+
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
     if (!el) return;
@@ -76,6 +78,19 @@
 
   async function populate(name) {
     const opts = await root.fetchOptions();
+    if (name === "student") {
+      studentBooks = opts.books;
+      const classSel = dialogs.student.querySelector("[data-class]");
+      const totalSel = dialogs.student.querySelector("[data-total]");
+      const datalist = document.getElementById("dlgStudentClasses");
+      if (datalist) {
+        datalist.innerHTML = root.viewModels.bookCategories(studentBooks)
+          .map(c => '<option value="' + esc(c) + '"></option>')
+          .join("");
+      }
+      const count = root.viewModels.bookCountForClass(studentBooks, readValue(dialogs.student, "[data-class]"));
+      if (count > 0) totalSel.value = String(count);
+    }
     if (name === "payment" || name === "issue") {
       const studentSel = dialogs[name].querySelector("[data-student]");
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
@@ -94,6 +109,12 @@
     const el = dlg.querySelector(sel);
     return el ? el.value : "";
   }
+
+  dialogs.student.querySelector("[data-class]").addEventListener("input", () => {
+    const count = root.viewModels.bookCountForClass(studentBooks, readValue(dialogs.student, "[data-class]"));
+    const totalSel = dialogs.student.querySelector("[data-total]");
+    if (count > 0) totalSel.value = String(count);
+  });
 
   dialogs.payment.addEventListener("submit", async e => {
     e.preventDefault();

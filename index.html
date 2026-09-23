@@ -446,7 +446,8 @@
       <div class="modal-head"><h3>Register student</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
       <div class="modal-body">
         <label>Full name<input type="text" data-name required></label>
-        <label>Class<input type="text" data-class placeholder="e.g. JS 1" required></label>
+        <label>Class<input type="text" data-class list="dlgStudentClasses" placeholder="e.g. JS 1" required></label>
+        <datalist id="dlgStudentClasses"></datalist>
         <label>Gender<select data-gender>
           <option value="">Select…</option>
           <option value="male">Male</option>
