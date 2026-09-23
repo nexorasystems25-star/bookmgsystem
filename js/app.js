@@ -143,6 +143,77 @@
     });
   }
 
+  const searchBtn = document.querySelector('[aria-label="Search"]');
+  const searchInput = document.getElementById("studentSearch");
+  if (searchBtn) {
+    function openSearchPanel() {
+      const prefill = searchInput ? searchInput.value.trim() : "";
+      openMenu(searchBtn, '<div class="search-panel">' +
+        '<input class="search-input" type="search" placeholder="Search students, books, payments…" value="' + esc(prefill) + '">' +
+        '<div class="search-results"></div></div>');
+      const input = menuRoot.querySelector(".search-input");
+      if (input) input.focus();
+    }
+    searchBtn.addEventListener("click", ev => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      if (openMenuEl) closeMenu();
+      else openSearchPanel();
+    });
+    menuRoot.addEventListener("input", ev => {
+      if (!ev.target.classList.contains("search-input")) return;
+      ev.stopPropagation();
+      runSearch();
+    });
+    menuRoot.addEventListener("click", ev => {
+      const hit = ev.target.closest("[data-search-go]");
+      if (!hit) return;
+      ev.stopPropagation();
+      closeMenu();
+      const page = hit.dataset.searchGo;
+      const q = hit.dataset.searchQ || "";
+      if (page === "students" && searchInput) {
+        searchInput.value = q;
+        location.hash = "#students";
+        if (CEC.viewModels.pageForHash(location.hash) === "students") {
+          renderStudents(viewData());
+        }
+      } else {
+        location.hash = "#" + page;
+      }
+    });
+
+    function runSearch() {
+      const panel = document.querySelector(".search-panel");
+      if (!panel) return;
+      const input = panel.querySelector(".search-input");
+      const results = document.querySelector(".search-results");
+      if (!input || !results) return;
+      const query = input.value.trim();
+      if (!currentData) { results.innerHTML = ""; return; }
+      const g = CEC.viewModels.globalSearch(viewData(), query);
+      if (!query) {
+        results.innerHTML = '<div class="search-hint">Type to search students, books, and payments.</div>';
+        return;
+      }
+      const allEmpty = !g.students.length && !g.books.length && !g.payments.length;
+      if (allEmpty) {
+        results.innerHTML = '<div class="search-hint">No results for &ldquo;' + esc(query) + "&rdquo;.</div>";
+        return;
+      }
+      const rows = (label, arr, go, fields) =>
+        arr.length ? '<div class="search-group"><h4>' + label + "</h4>" +
+          arr.map(r =>
+            '<button class="menu-item search-hit" role="menuitem" data-search-go="' + go + '" data-search-q="' + esc(query) + '">' +
+              fields(r).map(f => "<span>" + esc(f) + "</span>").join("") +
+            "</button>").join("") + "</div>" : "";
+      results.innerHTML =
+        rows("Students", g.students, "students", s => [s.name, s.studentId, s.className]) +
+        rows("Books", g.books, "books", b => [b.subject, b.publisher]) +
+        rows("Payments", g.payments, "payments", p => [p.studentName, p.paymentId]);
+    }
+  }
+
   function statusPillClass(status) {
     return status === "ready" ? "success" : status === "waiting" ? "warn" : "muted";
   }
