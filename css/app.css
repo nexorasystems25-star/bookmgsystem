@@ -84,3 +84,28 @@ button{cursor:pointer}
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 14px 18px; border-top: 1px solid #e6ecf5;
 }
+
+/* Stage 04 — multi-view navigation */
+section.page[hidden] { display: none; }
+.search-wrap { margin-bottom: 14px; }
+.search-input {
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  font-size: 13px;
+}
+.search-input:focus { outline: 2px solid #2f6fed; outline-offset: -1px; border-color: #2f6fed; }
+.count-note { font-size: 11px; color: #96a0ae; font-weight: 600; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  border: 1px solid var(--line); background: #fff; color: #4b5a71;
+  border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600;
+}
+.chip b { color: var(--ink); }
+.chip.momo b { color: #7654c5; }
+.chip.cash b { color: #4872cf; }
+.chip.telecel b { color: #7654c5; }
+.pill.warn { color: #9a6907; background: #fff3d6; }
+.pill.out { color: #b03a3a; background: #ffecec; }
+.pill.muted { color: #64748b; background: #eef1f5; }
+.empty-cell { color: #a0a9b6; font-style: italic; }
+.settings-value { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0; }

@@ -90,106 +90,334 @@
       </header>
 
       <section class="content" id="content">
-        <div class="page-head">
-          <div>
-            <p class="eyebrow">Overview</p>
-            <h1>Good afternoon, David.</h1>
-            <p class="muted">Here is what is happening with books and payments today.</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn btn-light" type="button">Export report</button>
-            <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
-          </div>
-        </div>
-
-        <div class="notice">
-          <div class="notice-icon">↗</div>
-          <div>
-            <b>2026/2027 academic year is active</b>
-            <span>Package prices and book entitlements are currently being recorded against this year.</span>
-          </div>
-          <button class="notice-close" aria-label="Dismiss">×</button>
-        </div>
-
         <div class="offline-pill" id="offlinePill" hidden>Offline mode</div>
         <div class="data-freshness" id="dataFreshness"></div>
 
-        <div class="metric-grid">
-          <article class="metric-card">
-            <div class="metric-top"><span>Total students</span><span class="metric-icon blue">♙</span></div>
-            <strong id="metricTotalStudents">—</strong>
-            <div class="metric-foot"><span class="positive" id="metricStudentsFoot">0</span> enrolled this term</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-top"><span>Payments today</span><span class="metric-icon green">₵</span></div>
-            <strong id="metricPaymentsToday">—</strong>
-            <div class="metric-foot"><span class="positive" id="metricPaymentsFoot">0%</span> of daily target</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-top"><span>Ready to issue</span><span class="metric-icon amber">⇧</span></div>
-            <strong id="metricReadyToIssue">—</strong>
-            <div class="metric-foot"><span class="warning" id="metricReadyFoot">0</span> students waiting</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-top"><span>Outstanding</span><span class="metric-icon red">!</span></div>
-            <strong id="metricOutstanding">—</strong>
-            <div class="metric-foot"><span class="muted" id="metricOutstandingFoot">Across 0 students</span></div>
-          </article>
-        </div>
-
-        <div class="dashboard-grid">
-          <section class="panel collection-panel">
-            <div class="panel-head">
-              <div><h2>Collection overview</h2><p>Payments recorded in the last 7 days.</p></div>
-              <button class="text-btn">View payments →</button>
+        <section class="page" id="page-dashboard">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h1>Good afternoon, David.</h1>
+              <p class="muted">Here is what is happening with books and payments today.</p>
             </div>
-            <div class="chart-wrap">
-              <div class="chart-y"><span>8k</span><span>6k</span><span>4k</span><span>2k</span><span>0</span></div>
-              <div class="chart">
-                <div class="grid-line g1"></div><div class="grid-line g2"></div><div class="grid-line g3"></div><div class="grid-line g4"></div>
-                <div class="bars" id="chartBars"></div>
-                <div class="chart-x" id="chartX"></div>
+            <div class="head-actions">
+              <button class="btn btn-light" type="button">Export report</button>
+              <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
+            </div>
+          </div>
+
+          <div class="notice">
+            <div class="notice-icon">↗</div>
+            <div>
+              <b>2026/2027 academic year is active</b>
+              <span>Package prices and book entitlements are currently being recorded against this year.</span>
+            </div>
+            <button class="notice-close" aria-label="Dismiss">×</button>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <div class="metric-top"><span>Total students</span><span class="metric-icon blue">♙</span></div>
+              <strong id="metricTotalStudents">—</strong>
+              <div class="metric-foot"><span class="positive" id="metricStudentsFoot">0</span> enrolled this term</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Payments today</span><span class="metric-icon green">₵</span></div>
+              <strong id="metricPaymentsToday">—</strong>
+              <div class="metric-foot"><span class="positive" id="metricPaymentsFoot">0%</span> of daily target</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Ready to issue</span><span class="metric-icon amber">⇧</span></div>
+              <strong id="metricReadyToIssue">—</strong>
+              <div class="metric-foot"><span class="warning" id="metricReadyFoot">0</span> students waiting</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Outstanding</span><span class="metric-icon red">!</span></div>
+              <strong id="metricOutstanding">—</strong>
+              <div class="metric-foot"><span class="muted" id="metricOutstandingFoot">Across 0 students</span></div>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel collection-panel">
+              <div class="panel-head">
+                <div><h2>Collection overview</h2><p>Payments recorded in the last 7 days.</p></div>
+                <button class="text-btn" data-go="payments">View payments →</button>
               </div>
-            </div>
-            <div class="legend"><span><i class="legend-dot cash"></i> Cash</span><span><i class="legend-dot momo"></i> Mobile Money</span></div>
-          </section>
-
-          <section class="panel readiness-panel">
-            <div class="panel-head">
-              <div><h2>Book readiness</h2><p>Current entitlement status.</p></div>
-              <button class="more-btn">•••</button>
-            </div>
-            <div class="donut-row">
-              <div class="donut"><div><b id="donutPct">0%</b><span>covered</span></div></div>
-              <div class="status-list">
-                <div><span><i class="status-dot ready"></i>Ready to issue</span><b id="readyCount">0</b></div>
-                <div><span><i class="status-dot waiting"></i>Waiting for stock</span><b id="waitingCount">0</b></div>
-                <div><span><i class="status-dot uncovered"></i>Not covered</span><b id="uncoveredCount">0</b></div>
+              <div class="chart-wrap">
+                <div class="chart-y"><span>8k</span><span>6k</span><span>4k</span><span>2k</span><span>0</span></div>
+                <div class="chart">
+                  <div class="grid-line g1"></div><div class="grid-line g2"></div><div class="grid-line g3"></div><div class="grid-line g4"></div>
+                  <div class="bars" id="chartBars"></div>
+                  <div class="chart-x" id="chartX"></div>
+                </div>
               </div>
-            </div>
-            <div class="stock-alert"><span>!</span><div><b><span id="stockLowCount">0</span> items are low in stock</b><small>Review inventory before the next issuing session.</small></div><button>Review →</button></div>
-          </section>
-        </div>
+              <div class="legend"><span><i class="legend-dot cash"></i> Cash</span><span><i class="legend-dot momo"></i> Mobile Money</span></div>
+            </section>
 
-        <div class="bottom-grid">
+            <section class="panel readiness-panel">
+              <div class="panel-head">
+                <div><h2>Book readiness</h2><p>Current entitlement status.</p></div>
+                <button class="more-btn">•••</button>
+              </div>
+              <div class="donut-row">
+                <div class="donut"><div><b id="donutPct">0%</b><span>covered</span></div></div>
+                <div class="status-list">
+                  <div><span><i class="status-dot ready"></i>Ready to issue</span><b id="readyCount">0</b></div>
+                  <div><span><i class="status-dot waiting"></i>Waiting for stock</span><b id="waitingCount">0</b></div>
+                  <div><span><i class="status-dot uncovered"></i>Not covered</span><b id="uncoveredCount">0</b></div>
+                </div>
+              </div>
+              <div class="stock-alert"><span>!</span><div><b><span id="stockLowCount">0</span> items are low in stock</b><small>Review inventory before the next issuing session.</small></div><button data-go="inventory">Review →</button></div>
+            </section>
+          </div>
+
+          <div class="bottom-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div><h2>Recent payments</h2><p>Latest transactions across the active academic year.</p></div>
+                <button class="text-btn" data-go="payments">See all →</button>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Student</th><th>Class</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
+                  <tbody id="recentPaymentsBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel activity-panel">
+              <div class="panel-head"><div><h2>Activity</h2><p>Latest system events.</p></div><button class="more-btn">•••</button></div>
+              <div class="activity" id="activityFeed"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-students" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Operations</p>
+              <h1>Students</h1>
+              <p class="muted">Registered students for the active academic year.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-primary" type="button" data-action="student">+ Register student</button>
+            </div>
+          </div>
           <section class="panel">
             <div class="panel-head">
-              <div><h2>Recent payments</h2><p>Latest transactions across the active academic year.</p></div>
-              <button class="text-btn">See all →</button>
+              <div><h2>All students</h2><p>Books fee, payments and entitlement status.</p></div>
+              <span class="count-note" id="studentCount">—</span>
+            </div>
+            <div class="search-wrap">
+              <input class="search-input" id="studentSearch" type="search" placeholder="Search by name, ID or class…" autocomplete="off">
             </div>
             <div class="table-scroll">
               <table>
-                <thead><tr><th>Student</th><th>Class</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
-                <tbody id="recentPaymentsBody"></tbody>
+                <thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Gender</th><th>Paid</th><th>Outstanding</th><th>Status</th></tr></thead>
+                <tbody id="studentsBody"></tbody>
               </table>
             </div>
           </section>
+        </section>
 
-          <section class="panel activity-panel">
-            <div class="panel-head"><div><h2>Activity</h2><p>Latest system events.</p></div><button class="more-btn">•••</button></div>
-            <div class="activity" id="activityFeed"></div>
+        <section class="page" id="page-payments" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Operations</p>
+              <h1>Payments</h1>
+              <p class="muted">All payments recorded this academic year.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-light" type="button">Export report</button>
+              <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
+            </div>
+          </div>
+          <div class="chip-row" id="methodChips"></div>
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>Payment history</h2><p>Newest first.</p></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Ref</th><th>Student</th><th>Class</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th></tr></thead>
+                <tbody id="paymentsBody"></tbody>
+              </table>
+            </div>
           </section>
-        </div>
+        </section>
+
+        <section class="page" id="page-books" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Operations</p>
+              <h1>Books &amp; Packages</h1>
+              <p class="muted">Pricing and entitlements on offer this year.</p>
+            </div>
+          </div>
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>Book catalogue</h2><p>Price per title and current stock.</p></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>ID</th><th>Subject</th><th>Publisher</th><th>Price</th><th>Stock</th></tr></thead>
+                <tbody id="booksBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="page" id="page-inventory" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Operations</p>
+              <h1>Inventory</h1>
+              <p class="muted">Stock levels per title.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-primary" type="button" data-action="stock">+ Adjust stock</button>
+            </div>
+          </div>
+          <div class="metric-grid" id="inventoryCards"></div>
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>Stock levels</h2><p>Low stock is flagged at or below each title's threshold.</p></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Title</th><th>In stock</th><th>Threshold</th><th>Status</th></tr></thead>
+                <tbody id="inventoryBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="page" id="page-issuing" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Operations</p>
+              <h1>Issue Books</h1>
+              <p class="muted">Students ready to receive their book package.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-primary" type="button" data-action="issue">Issue books</button>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card">
+              <div class="metric-top"><span>Ready to issue</span><span class="metric-icon green">⇧</span></div>
+              <strong id="issueReadyCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Waiting for stock</span><span class="metric-icon amber">!</span></div>
+              <strong id="issueWaitingCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Not covered</span><span class="metric-icon red">!</span></div>
+              <strong id="issueUncoveredCount">0</strong>
+            </article>
+          </div>
+          <div class="bottom-grid">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Ready students</h2><p>Fully covered, cleared to collect books.</p></div></div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Student</th><th>Class</th><th>Status</th></tr></thead>
+                  <tbody id="issueStudentsBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h2>Stock availability</h2><p>Per-title stock heading into the next session.</p></div></div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Title</th><th>In stock</th><th>Status</th></tr></thead>
+                  <tbody id="issueBooksBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-reports" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Insights</p>
+              <h1>Reports</h1>
+              <p class="muted">Summaries derived from live payments and balances.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-light" type="button">Export report</button>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card">
+              <div class="metric-top"><span>Cash collected</span><span class="metric-icon blue">₵</span></div>
+              <strong id="reportCash">—</strong>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>MTN MoMo</span><span class="metric-icon green">₵</span></div>
+              <strong id="reportMomo">—</strong>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Telecel</span><span class="metric-icon amber">₵</span></div>
+              <strong id="reportTelecel">—</strong>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Outstanding</span><span class="metric-icon red">!</span></div>
+              <strong id="reportOutstanding">—</strong>
+            </article>
+          </div>
+          <div class="bottom-grid">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Collections by class</h2><p>Total per class, highest first.</p></div></div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Class</th><th>Total</th></tr></thead>
+                  <tbody id="reportClassBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h2>Top outstanding balances</h2><p>Students owing the most.</p></div></div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Student</th><th>Class</th><th>Balance</th></tr></thead>
+                  <tbody id="reportOutstandingBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" id="page-settings" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Insights</p>
+              <h1>Settings</h1>
+              <p class="muted">System defaults and the active data source.</p>
+            </div>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head"><div><h2>Academic year</h2><p>Currently active period.</p></div></div>
+              <p class="settings-value" id="settingsYear">—</p>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h2>Daily payment target</h2><p>Benchmark shown on the dashboard.</p></div></div>
+              <p class="settings-value" id="settingsTarget">—</p>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h2>Currency</h2><p>Symbol prefix for all amounts.</p></div></div>
+              <p class="settings-value" id="settingsCurrency">—</p>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h2>Data source</h2><p>Live Google Sheet or offline snapshot.</p></div></div>
+              <p class="settings-value" id="settingsStatus">—</p>
+            </section>
+          </div>
+        </section>
       </section>
     </main>
   </div>
@@ -268,6 +496,7 @@
   <div class="toast" id="toast" role="status"></div>
   <script src="js/csv.js"></script>
   <script src="js/derive.js"></script>
+  <script src="js/view-models.js"></script>
   <script src="js/data-access.js"></script>
   <script src="js/app.js"></script>
   <script src="js/write.js"></script>
