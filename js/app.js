@@ -417,10 +417,11 @@
       ? inv.rows.map(r => `
         <tr>
           <td><b>${esc(r.subject)}</b></td>
+          <td>${esc(r.category)}</td>
           <td>${r.stockQty}</td>
           <td><span class="pill ${stockPillClass(r.status)}">${r.status}</span></td>
         </tr>`).join("")
-      : emptyRow(3);
+      : emptyRow(4);
   }
 
   function renderReports(data) {
