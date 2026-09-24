@@ -277,6 +277,23 @@ test("validateStockPayload accepts valid input and rejects bad", () => {
   assert.equal(lib.validateStockPayload({ stock_delta: 20 }).ok, false);
 });
 
+test("validateStockPayload accepts a stock_adjustments batch array", () => {
+  assert.deepEqual(lib.validateStockPayload({
+    stock_adjustments: [{ book_id: "B001", stock_delta: 10 }, { book_id: "B002", stock_delta: -5 }]
+  }).payload, {
+    stock_adjustments: [{ book_id: "B001", stockDelta: 10 }, { book_id: "B002", stockDelta: -5 }]
+  });
+});
+
+test("validateStockPayload rejects bad batch entries", () => {
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [] }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ stock_delta: 10 }] }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 0 }] }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 1.5 }] }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 5 }, { book_id: "B001", stock_delta: 5 }] }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: "B001" }).ok, false);
+});
+
 test("client contract: write.js sends snake_case payloads (camelCase rejected)", () => {
   assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "5", method: "Cash" }).ok, true);
   assert.equal(lib.validatePaymentPayload({ studentId: "S001", amount: "5", method: "Cash" }).ok, false);
@@ -286,6 +303,8 @@ test("client contract: write.js sends snake_case payloads (camelCase rejected)",
   assert.equal(lib.validateIssuePayload({ studentId: "S001", bookId: "B001", qty: 2 }).ok, false);
   assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 20 }).ok, true);
   assert.equal(lib.validateStockPayload({ bookId: "B001", stockDelta: 20 }).ok, false);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 10 }] }).ok, true);
+  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ bookId: "B001", stockDelta: 10 }] }).ok, false);
 });
 
 test("findRowIndex locates a row by id column", () => {

@@ -94,6 +94,22 @@ function validateIssuePayload(raw) {
 
 function validateStockPayload(raw) {
   const p = raw || {};
+  if (Array.isArray(p.stock_adjustments)) {
+    const items = p.stock_adjustments;
+    if (!items.length) return { ok: false, error: "stock_adjustments must contain at least one adjustment" };
+    const seen = {};
+    const adjustments = items.map((it, i) => {
+      const delta = Number(it && it.stock_delta);
+      const bookId = it && it.book_id;
+      if (!bookId || typeof bookId !== "string") return { error: "adjustment " + i + ": book_id is required" };
+      if (!Number.isInteger(delta) || delta === 0) return { error: "adjustment " + i + ": stock_delta must be a non-zero integer" };
+      if (seen[bookId]) return { error: "adjustment " + i + ": duplicate book_id " + bookId };
+      seen[bookId] = true;
+      return { book_id: bookId, stockDelta: delta };
+    });
+    for (const a of adjustments) if (a.error) return { ok: false, error: a.error };
+    return { ok: true, payload: { stock_adjustments: adjustments } };
+  }
   const delta = Number(p.stock_delta);
   if (!p.book_id || typeof p.book_id !== "string") return { ok: false, error: "book_id is required" };
   if (!Number.isInteger(delta) || delta === 0) return { ok: false, error: "stock_delta must be a non-zero integer" };
