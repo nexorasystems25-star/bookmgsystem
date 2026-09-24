@@ -108,6 +108,16 @@
     return Object.keys(set).sort();
   }
 
+  function exerciseBookCategories(books) {
+    const set = {};
+    (books || []).forEach(b => {
+      if (!isExerciseBook(b)) return;
+      const c = String(b.category || "").trim();
+      if (c) set[c] = true;
+    });
+    return Object.keys(set).sort();
+  }
+
   function classKey(s) {
     return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
   }
@@ -298,6 +308,7 @@
     notifications,
     availableYears,
     bookCategories,
+    exerciseBookCategories,
     bookCountForClass,
     classBookInfo,
     classOptionLabel,

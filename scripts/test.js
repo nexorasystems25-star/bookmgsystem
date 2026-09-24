@@ -876,6 +876,22 @@ test("viewModels.bookCategories excludes exercise-book categories", () => {
   assert.deepEqual(vm.bookCategories(books), ["BS 2", "KG 1"]);
 });
 
+test("viewModels.exerciseBookCategories returns sorted distinct exercise sizes", () => {
+  const books = [
+    { category: "A1 Small", publisher: "Exercise Book" },
+    { category: "A4", publisher: "Exercise Book" },
+    { category: "A1 Small", publisher: "Exercise Book" },
+    { category: "", publisher: "Exercise Book" },
+    { category: "KG 1", publisher: "GES Press" }
+  ];
+  assert.deepEqual(vm.exerciseBookCategories(books), ["A1 Small", "A4"]);
+});
+
+test("viewModels.exerciseBookCategories returns empty for no books", () => {
+  assert.deepEqual(vm.exerciseBookCategories([]), []);
+  assert.deepEqual(vm.exerciseBookCategories(null), []);
+});
+
 test("viewModels.bookCountForClass counts textbooks only", () => {
   const books = [
     { category: "KG 1", publisher: "GES Press" },
