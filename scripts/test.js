@@ -638,51 +638,76 @@ test("viewModels.bookCountForClass returns 0 for unknown/empty class", () => {
   assert.equal(vm.bookCountForClass([], "KG 1"), 0);
 });
 
-test("viewModels.classBookInfo picks fee from classFees sheet", () => {
+test("viewModels.classBookInfo returns textbook count, fee, and exbooks", () => {
   const books = [
     { category: "KG 1" },
     { category: "KG 1" },
     { category: "BS 2" }
   ];
   const fees = [
-    { className: "KG 1", fee: 400 },
-    { className: "BS 2", fee: 430 }
+    { className: "KG 1", fee: 400, exbooks: 20 },
+    { className: "BS 2", fee: 430, exbooks: 15 }
   ];
-  assert.deepEqual(vm.classBookInfo(books, "KG 1", fees), { count: 2, fee: 400 });
-  assert.deepEqual(vm.classBookInfo(books, "BS 2", fees), { count: 1, fee: 430 });
+  assert.deepEqual(vm.classBookInfo(books, "KG 1", fees), { count: 2, fee: 400, exbooks: 20 });
+  assert.deepEqual(vm.classBookInfo(books, "BS 2", fees), { count: 1, fee: 430, exbooks: 15 });
 });
 
 test("viewModels.classBookInfo matches fees tolerantly (KG1 vs KG 1)", () => {
   const books = [{ category: "KG 1" }, { category: "BS 2" }];
-  const fees = [{ className: "KG 1", fee: 400 }, { className: "BS 2", fee: 430 }];
-  assert.deepEqual(vm.classBookInfo(books, "KG1", fees), { count: 1, fee: 400 });
-  assert.deepEqual(vm.classBookInfo(books, "bs 2", fees), { count: 1, fee: 430 });
+  const fees = [{ className: "KG 1", fee: 400, exbooks: 20 }, { className: "BS 2", fee: 430 }];
+  assert.deepEqual(vm.classBookInfo(books, "KG1", fees), { count: 1, fee: 400, exbooks: 20 });
+  assert.deepEqual(vm.classBookInfo(books, "bs 2", fees), { count: 1, fee: 430, exbooks: 0 });
 });
 
 test("viewModels.classBookInfo fee fallback when no fee row", () => {
   const books = [{ category: "KG 1" }];
-  assert.deepEqual(vm.classBookInfo(books, "KG 1", []), { count: 1, fee: 0 });
-  assert.deepEqual(vm.classBookInfo(books, "KG 1"), { count: 1, fee: 0 });
+  assert.deepEqual(vm.classBookInfo(books, "KG 1", []), { count: 1, fee: 0, exbooks: 0 });
+  assert.deepEqual(vm.classBookInfo(books, "KG 1"), { count: 1, fee: 0, exbooks: 0 });
 });
 
 test("viewModels.classBookInfo returns zeroed info for unknown/empty", () => {
   const books = [{ category: "KG 1" }];
-  const fees = [{ className: "KG 1", fee: 400 }];
-  assert.deepEqual(vm.classBookInfo(books, "JS 1", fees), { count: 0, fee: 0 });
-  assert.deepEqual(vm.classBookInfo(books, "", fees), { count: 0, fee: 0 });
-  assert.deepEqual(vm.classBookInfo([], "KG 1", fees), { count: 0, fee: 0 });
+  const fees = [{ className: "KG 1", fee: 400, exbooks: 20 }];
+  assert.deepEqual(vm.classBookInfo(books, "JS 1", fees), { count: 0, fee: 0, exbooks: 0 });
+  assert.deepEqual(vm.classBookInfo(books, "", fees), { count: 0, fee: 0, exbooks: 0 });
+  assert.deepEqual(vm.classBookInfo([], "KG 1", fees), { count: 0, fee: 0, exbooks: 0 });
 });
 
-test("viewModels.classOptionLabel renders fee and count inline", () => {
+test("viewModels.classOptionLabel renders textbook count and fee inline", () => {
   const books = [{ category: "KG 1" }, { category: "KG 1" }];
   const fees = [{ className: "KG 1", fee: 400 }];
-  assert.equal(vm.classOptionLabel("KG 1", books, fees), "KG 1 \u2014 400 GHS, 2 books");
-  assert.equal(vm.classOptionLabel("KG 1", [{ category: "KG 1" }], fees), "KG 1 \u2014 400 GHS, 1 book");
+  assert.equal(vm.classOptionLabel("KG 1", books, fees), "KG 1 \u2014 2 textbooks \u2014 400 GHS");
+  assert.equal(vm.classOptionLabel("KG 1", [{ category: "KG 1" }], fees), "KG 1 \u2014 1 textbook \u2014 400 GHS");
 });
 
 test("viewModels.classOptionLabel degrades gracefully", () => {
   assert.equal(vm.classOptionLabel("BS 9", [], []), "BS 9");
   assert.equal(vm.classOptionLabel("", [], []), "");
+});
+
+test("viewModels.isExerciseBook classifies by publisher", () => {
+  assert.equal(vm.isExerciseBook({ publisher: "Exercise Book" }), true);
+  assert.equal(vm.isExerciseBook({ publisher: "GES Press" }), false);
+  assert.equal(vm.isExerciseBook({}), false);
+  assert.equal(vm.isExerciseBook(null), false);
+});
+
+test("viewModels.bookCategories excludes exercise-book categories", () => {
+  const books = [
+    { category: "KG 1", publisher: "GES Press" },
+    { category: "BS 2", publisher: "GES Press" },
+    { category: "A1 Small", publisher: "Exercise Book" }
+  ];
+  assert.deepEqual(vm.bookCategories(books), ["BS 2", "KG 1"]);
+});
+
+test("viewModels.bookCountForClass counts textbooks only", () => {
+  const books = [
+    { category: "KG 1", publisher: "GES Press" },
+    { category: "KG 1", publisher: "GES Press" },
+    { category: "A1 Small", publisher: "Exercise Book" }
+  ];
+  assert.equal(vm.bookCountForClass(books, "KG 1"), 2);
 });
 
 test("derive.normalizeClassFees reads class/fee columns", () => {

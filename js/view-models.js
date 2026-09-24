@@ -94,9 +94,14 @@
       .sort((a, b) => b.balance - a.balance);
   }
 
+  function isExerciseBook(book) {
+    return String((book && book.publisher) || "").trim() === "Exercise Book";
+  }
+
   function bookCategories(books) {
     const set = {};
     (books || []).forEach(b => {
+      if (isExerciseBook(b)) return;
       const c = String(b.category || "").trim();
       if (c) set[c] = true;
     });
@@ -112,6 +117,7 @@
     if (!target) return 0;
     const counts = {};
     (books || []).forEach(b => {
+      if (isExerciseBook(b)) return;
       const key = classKey(b.category);
       if (!key) return;
       counts[key] = (counts[key] || 0) + 1;
@@ -121,14 +127,17 @@
 
   function classBookInfo(books, className, classFees) {
     const target = classKey(className);
-    const info = { count: 0, fee: 0 };
+    const info = { count: 0, fee: 0, exbooks: 0 };
     if (!target) return info;
     (books || []).forEach(b => {
+      if (isExerciseBook(b)) return;
       if (classKey(b.category) !== target) return;
       info.count += 1;
     });
     (classFees || []).forEach(f => {
-      if (classKey(f.className) === target && info.fee === 0) info.fee = f.fee;
+      if (classKey(f.className) !== target) return;
+      info.fee = f.fee;
+      info.exbooks = f.exbooks || 0;
     });
     return info;
   }
@@ -137,9 +146,9 @@
     const info = classBookInfo(books, className, classFees);
     const label = String(className || "").trim();
     const parts = [];
+    if (info.count > 0) parts.push(info.count + (info.count === 1 ? " textbook" : " textbooks"));
     if (info.fee > 0) parts.push(info.fee + " GHS");
-    if (info.count > 0) parts.push(info.count + (info.count === 1 ? " book" : " books"));
-    return parts.length ? label + " \u2014 " + parts.join(", ") : label;
+    return parts.length ? label + " \u2014 " + parts.join(" \u2014 ") : label;
   }
 
   function availableYears(students, config) {
@@ -261,6 +270,7 @@
     bookCategories,
     bookCountForClass,
     classBookInfo,
-    classOptionLabel
+    classOptionLabel,
+    isExerciseBook
   };
 });
