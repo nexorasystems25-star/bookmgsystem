@@ -46,6 +46,7 @@
   let issueOpts = null;
   let stockOpts = null;
   let stockMode = "textbook";
+  let studentMode = "both";
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -63,6 +64,7 @@
     const dlg = dialogs[name];
     if (!dlg) return;
     clearError(dlg);
+    if (name === "student") studentMode = mode === "textbook" ? "textbook" : mode === "exbooks" ? "exbooks" : "both";
     if (name === "stock") stockMode = mode === "exbooks" ? "exbooks" : "textbook";
     populate(name).then(() => dlg.showModal());
   }
@@ -73,6 +75,10 @@
       btn.addEventListener("click", () => openDialog(action));
     } else if (action === "stock-ex") {
       btn.addEventListener("click", () => openDialog("stock", "exbooks"));
+    } else if (action === "student-txt") {
+      btn.addEventListener("click", () => openDialog("student", "textbook"));
+    } else if (action === "student-ex") {
+      btn.addEventListener("click", () => openDialog("student", "exbooks"));
     }
   });
 
@@ -87,15 +93,16 @@
     stockMode = "textbook";
   });
 
+  dialogs.student.addEventListener("close", () => {
+    studentMode = "both";
+  });
+
   async function populate(name) {
     const opts = await root.fetchOptions();
     if (name === "student") {
       studentBooks = opts.books;
       studentFees = opts.classFees;
-      const classSel = dialogs.student.querySelector("[data-class]");
-      classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(studentBooks)
-        .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, studentBooks, studentFees)) + "</option>")
-        .join("");
+      const classSel = applyStudentMode();
       fillClassFields(classSel.value);
     }
     if (name === "payment") {
@@ -170,6 +177,29 @@
     return el ? el.value : "";
   }
 
+  function applyStudentMode() {
+    const ex = studentMode === "exbooks";
+    const txt = studentMode === "textbook";
+    const classSel = dialogs.student.querySelector("[data-class]");
+    const cats = root.viewModels[ex ? "exerciseBookCategories" : "bookCategories"](studentBooks);
+    classSel.innerHTML = '<option value="">' + (ex ? "Select size…" : "Select class…") + "</option>" + cats
+      .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, studentBooks, studentFees)) + "</option>")
+      .join("");
+    const heading = dialogs.student.querySelector("[data-student-heading]");
+    if (heading) heading.textContent = ex ? "Register student — ExBooks" : txt ? "Register student — Textbooks" : "Register student";
+    dialogs.student.querySelectorAll("[data-mode-show]").forEach(row => {
+      const show = row.dataset.modeShow.split(",").indexOf(studentMode) !== -1;
+      row.hidden = !show;
+      row.style.display = show ? "" : "none";
+    });
+    dialogs.student.querySelectorAll("[data-student-modes] [data-mode]").forEach(btn => {
+      const active = btn.dataset.mode === studentMode;
+      btn.classList.toggle("btn-primary", active);
+      btn.classList.toggle("btn-light", !active);
+    });
+    return classSel;
+  }
+
   function fillClassFields(className) {
     const info = root.viewModels.classBookInfo(studentBooks, className, studentFees);
     dialogs.student.querySelector("[data-total]").value = info.count > 0 ? String(info.count) : "";
@@ -179,6 +209,14 @@
 
   dialogs.student.querySelector("[data-class]").addEventListener("change", () => {
     fillClassFields(readValue(dialogs.student, "[data-class]"));
+  });
+
+  dialogs.student.querySelectorAll("[data-student-modes] [data-mode]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      studentMode = btn.dataset.mode === "textbook" || btn.dataset.mode === "exbooks" ? btn.dataset.mode : "both";
+      const classSel = applyStudentMode();
+      fillClassFields(classSel.value);
+    });
   });
 
   dialogs.payment.addEventListener("submit", async e => {
@@ -219,7 +257,8 @@
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.registerStudent({ name, class: klass, gender, books_fee: fee, books_total: total, exbooks });
+      const payload = root.viewModels.purchasePayload(studentMode, { fee, total, exbooks });
+      await root.write.registerStudent({ name, class: klass, gender, books_fee: payload.fee, books_total: payload.total, exbooks: payload.exbooks });
       dlg.close();
       showToast("Student registered.");
     } catch (err) {
