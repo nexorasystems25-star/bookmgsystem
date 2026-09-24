@@ -74,6 +74,16 @@
     }
   }
 
+  async function fetchClassFees() {
+    const rows = await fetchTab("ClassFees", "class-fees.json");
+    const usable = (rows || []).some(r => r && (r.class || r.className) && (r.fee || r.books_fee));
+    if (sessionCache.ClassFees === "live" && !usable) {
+      sessionCache.ClassFees = "json";
+      return loadLocal("class-fees.json");
+    }
+    return rows;
+  }
+
   function anyTabLive() {
     return Object.values(sessionCache).indexOf("live") !== -1;
   }
@@ -89,7 +99,7 @@
       fetchTab("Payments", "payments.json"),
       fetchTab("Activity", "activity.json"),
       fetchTab("Books", "books.json"),
-      fetchTab("ClassFees", "class-fees.json"),
+      fetchClassFees(),
       fetchTab("Config", "config.json")
     ]);
 
@@ -131,7 +141,7 @@
     const [studentsRows, booksRows, feesRows] = await Promise.all([
       fetchTab("Students", "students.json"),
       fetchTab("Books", "books.json"),
-      fetchTab("ClassFees", "class-fees.json")
+      fetchClassFees()
     ]);
     return {
       students: CEC.derive.normalizeStudents(studentsRows),
