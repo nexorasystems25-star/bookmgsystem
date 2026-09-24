@@ -93,6 +93,7 @@ button{cursor:pointer}
 .book-list .book-name small { color: #5a6b85; font-size: 12px; }
 .book-list .price { margin-left: auto; white-space: nowrap; color: #1c2b44; }
 .book-list input[type="checkbox"] { width: auto; margin-top: 2px; }
+.book-list input.qty { width: 96px; margin-left: auto; padding: 6px 8px; text-align: right; }
 .empty-note { margin: 4px 0; color: #5a6b85; font-size: 13px; }
 .modal-foot {
   display: flex; justify-content: flex-end; gap: 10px;
