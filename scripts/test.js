@@ -673,6 +673,18 @@ test("viewModels.classBookInfo returns zeroed info for unknown/empty", () => {
   assert.deepEqual(vm.classBookInfo([], "KG 1", fees), { count: 0, fee: 0 });
 });
 
+test("viewModels.classOptionLabel renders fee and count inline", () => {
+  const books = [{ category: "KG 1" }, { category: "KG 1" }];
+  const fees = [{ className: "KG 1", fee: 400 }];
+  assert.equal(vm.classOptionLabel("KG 1", books, fees), "KG 1 \u2014 400 GHS, 2 books");
+  assert.equal(vm.classOptionLabel("KG 1", [{ category: "KG 1" }], fees), "KG 1 \u2014 400 GHS, 1 book");
+});
+
+test("viewModels.classOptionLabel degrades gracefully", () => {
+  assert.equal(vm.classOptionLabel("BS 9", [], []), "BS 9");
+  assert.equal(vm.classOptionLabel("", [], []), "");
+});
+
 test("derive.normalizeClassFees reads class/fee columns", () => {
   const rows = [
     { class: "KG 1", fee: "400" },

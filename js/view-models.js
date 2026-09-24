@@ -133,6 +133,15 @@
     return info;
   }
 
+  function classOptionLabel(className, books, classFees) {
+    const info = classBookInfo(books, className, classFees);
+    const label = String(className || "").trim();
+    const parts = [];
+    if (info.fee > 0) parts.push(info.fee + " GHS");
+    if (info.count > 0) parts.push(info.count + (info.count === 1 ? " book" : " books"));
+    return parts.length ? label + " \u2014 " + parts.join(", ") : label;
+  }
+
   function availableYears(students, config) {
     const set = {};
     (students || []).forEach(s => {
@@ -251,6 +260,7 @@
     availableYears,
     bookCategories,
     bookCountForClass,
-    classBookInfo
+    classBookInfo,
+    classOptionLabel
   };
 });

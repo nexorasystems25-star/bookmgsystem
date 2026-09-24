@@ -84,7 +84,7 @@
       studentFees = opts.classFees;
       const classSel = dialogs.student.querySelector("[data-class]");
       classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(studentBooks)
-        .map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>")
+        .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, studentBooks, studentFees)) + "</option>")
         .join("");
       fillClassFields(classSel.value);
     }
