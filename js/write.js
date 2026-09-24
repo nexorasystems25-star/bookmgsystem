@@ -93,10 +93,6 @@
     stockMode = "textbook";
   });
 
-  dialogs.student.addEventListener("close", () => {
-    studentMode = "both";
-  });
-
   async function populate(name) {
     const opts = await root.fetchOptions();
     if (name === "student") {
