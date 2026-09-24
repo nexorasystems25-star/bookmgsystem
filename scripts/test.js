@@ -682,9 +682,9 @@ const FIXTURE_PAYMENTS = [
   { paymentId: "P4", studentName: "Kwame", className: "JS 1", amount: 500, method: "cash" }
 ];
 const FIXTURE_BOOKS = [
-  { bookId: "B1", subject: "English", publisher: "A", stockQty: 20, lowStockThreshold: 5 },
-  { bookId: "B2", subject: "Maths", publisher: "B", stockQty: 4, lowStockThreshold: 5 },
-  { bookId: "B3", subject: "Science", publisher: "C", stockQty: 0, lowStockThreshold: 3 }
+  { bookId: "B1", subject: "English", category: "KG 1", publisher: "A", stockQty: 20, lowStockThreshold: 5 },
+  { bookId: "B2", subject: "Maths", category: "KG 1", publisher: "B", stockQty: 4, lowStockThreshold: 5 },
+  { bookId: "B3", subject: "Science", category: "Class 1", publisher: "C", stockQty: 0, lowStockThreshold: 3 }
 ];
 
 test("viewModels.issuedBookIds parses issue tokens per student", () => {
@@ -772,6 +772,7 @@ test("viewModels.stockStatus flags OK / Low / Out with counts", () => {
   assert.equal(inv.lowCount, 1);
   assert.equal(inv.outCount, 1);
   assert.deepEqual(inv.rows.map(r => r.status), ["OK", "Low", "Out"]);
+  assert.deepEqual(inv.rows.map(r => r.category), ["KG 1", "KG 1", "Class 1"]);
 });
 
 test("viewModels.bookCategories returns sorted distinct categories", () => {

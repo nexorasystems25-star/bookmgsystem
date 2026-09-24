@@ -63,6 +63,7 @@
       return {
         bookId: b.bookId,
         subject: b.subject,
+        category: b.category,
         publisher: b.publisher,
         stockQty: b.stockQty,
         lowStockThreshold: b.lowStockThreshold,
