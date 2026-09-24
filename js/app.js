@@ -388,11 +388,12 @@
       ? inv.rows.map(r => `
         <tr>
           <td><b>${esc(r.subject)}</b><small>${esc(r.publisher)}</small></td>
+          <td>${esc(r.category)}</td>
           <td>${r.stockQty}</td>
           <td>${r.lowStockThreshold}</td>
           <td><span class="pill ${stockPillClass(r.status)}">${r.status}</span></td>
         </tr>`).join("")
-      : emptyRow(4);
+      : emptyRow(5);
   }
 
   function renderIssuing(data) {
