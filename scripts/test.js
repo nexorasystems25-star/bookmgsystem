@@ -153,6 +153,15 @@ test("buildKpis totals today's payments and outstanding", () => {
   assert.equal(k.outstandingAmount, 550);
 });
 
+test("buildKpis outstanding uses booksFee when booksTotal is a book count", () => {
+  const students = derive.normalizeStudents([
+    { student_id: "CEC-010", name: "Ten", class: "BS 2", gender: "M", academic_year: "2026/2027", books_fee: "1200", books_paid: "800", books_total: "8", exbooks: "2", status: "waiting" }
+  ]);
+  const k = derive.buildKpis(students, [], derive.normalizeConfig([CONFIG]));
+  assert.equal(k.outstandingCount, 1);
+  assert.equal(k.outstandingAmount, 400);
+});
+
 test("buildChart7Days buckets by method over last 7 days", () => {
   const payments = derive.normalizePayments(PAYMENTS);
   const chart = derive.buildChart7Days(payments);
@@ -953,6 +962,12 @@ test("viewModels.studentOutstanding is never negative", () => {
   assert.equal(vm.studentOutstanding({ booksTotal: 1200, booksPaid: 500 }), 700);
   assert.equal(vm.studentOutstanding({ booksTotal: 1200, booksPaid: 1400 }), 0);
   assert.equal(vm.studentOutstanding({ booksTotal: undefined, booksPaid: 0 }), 0);
+});
+
+test("viewModels.studentOutstanding uses booksFee when booksTotal is a book count", () => {
+  assert.equal(vm.studentOutstanding({ booksFee: 1200, booksTotal: 8, booksPaid: 800 }), 400);
+  assert.equal(vm.studentOutstanding({ booksFee: 1200, booksTotal: 8, booksPaid: 1400 }), 0);
+  assert.equal(vm.studentOutstanding({ booksFee: 0, booksTotal: 700, booksPaid: 500 }), 200);
 });
 
 test("viewModels.outstandingList filters and sorts desc", () => {

@@ -80,7 +80,8 @@
   }
 
   function studentOutstanding(student) {
-    return Math.max(0, (student.booksTotal || 0) - (student.booksPaid || 0));
+    const fee = student.booksFee || student.booksTotal || 0;
+    return Math.max(0, fee - (student.booksPaid || 0));
   }
 
   function outstandingList(students) {

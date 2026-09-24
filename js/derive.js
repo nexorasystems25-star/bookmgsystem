@@ -115,7 +115,7 @@
     const today = todayISO();
     const readiness = buildReadiness(students);
     const outstanding = students.reduce((acc, s) => {
-      const bal = s.booksTotal - s.booksPaid;
+      const bal = (s.booksFee || s.booksTotal || 0) - s.booksPaid;
       if (bal > 0) {
         acc.count += 1;
         acc.amount += bal;
