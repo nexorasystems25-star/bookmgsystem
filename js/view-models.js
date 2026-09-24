@@ -112,6 +112,36 @@
     return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
   }
 
+  function issuedBookIds(activity, student) {
+    const name = String((student && student.name) || "").trim().toLowerCase();
+    const ids = [];
+    (activity || []).forEach(a => {
+      if (String((a && a.type) || "").trim() !== "issue") return;
+      const m = String((a && a.description) || "").match(/^Books issued to (.+?)\s*\[([^\]]*)\]$/i);
+      if (!m) return;
+      if (String(m[1]).trim().toLowerCase() !== name) return;
+      String(m[2]).split(",").forEach(part => {
+        const id = part.trim();
+        if (id && ids.indexOf(id) === -1) ids.push(id);
+      });
+    });
+    return ids;
+  }
+
+  function issueEligibleBooks(books, student, activity) {
+    const target = classKey(student && student.className);
+    const paid = Number((student && student.booksPaid) || 0);
+    if (!target || !(paid > 0)) return [];
+    const issued = issuedBookIds(activity, student);
+    return (books || []).filter(b => {
+      if (isExerciseBook(b)) return false;
+      if (classKey(b.category) !== target) return false;
+      if (!(Number(b.price) > 0) || Number(b.price) > paid) return false;
+      if (!(Number(b.stockQty) > 0)) return false;
+      return issued.indexOf(b.bookId) === -1;
+    });
+  }
+
   function bookCountForClass(books, className) {
     const target = classKey(className);
     if (!target) return 0;
@@ -271,6 +301,8 @@
     bookCountForClass,
     classBookInfo,
     classOptionLabel,
-    isExerciseBook
+    isExerciseBook,
+    issuedBookIds,
+    issueEligibleBooks
   };
 });

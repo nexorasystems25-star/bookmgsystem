@@ -80,6 +80,20 @@ button{cursor:pointer}
   outline: 2px solid #2f6fed; outline-offset: -1px; border-color: #2f6fed;
 }
 .modal-error { margin: 0; color: #b42318; font-size: 13px; font-weight: 500; }
+.book-list {
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid #cfd9e8; border-radius: 6px; padding: 4px 10px; background: #fff;
+}
+.book-list label.book-option {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 7px 0; border-bottom: 1px dashed #e6ecf5; font-weight: 500; font-size: 13px;
+}
+.book-list label.book-option:last-child { border-bottom: 0; }
+.book-list .book-name { display: grid; gap: 1px; }
+.book-list .book-name small { color: #5a6b85; font-size: 12px; }
+.book-list .price { margin-left: auto; white-space: nowrap; color: #1c2b44; }
+.book-list input[type="checkbox"] { width: auto; margin-top: 2px; }
+.empty-note { margin: 4px 0; color: #5a6b85; font-size: 13px; }
 .modal-foot {
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 14px 18px; border-top: 1px solid #e6ecf5;

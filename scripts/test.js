@@ -262,6 +262,14 @@ test("validateIssuePayload accepts valid input and rejects bad", () => {
   assert.equal(lib.validateIssuePayload({ student_id: "S001", qty: 1 }).ok, false);
 });
 
+test("validateIssuePayload accepts a books array and rejects empty/bad ones", () => {
+  assert.deepEqual(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "B002"] }).payload, { student_id: "S001", books: ["B001", "B002"] });
+  assert.deepEqual(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "  ", "B001"] }).payload.books, ["B001"]);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: "B001" }).ok, false);
+  assert.equal(lib.validateIssuePayload({ books: ["B001"] }).ok, false);
+});
+
 test("validateStockPayload accepts valid input and rejects bad", () => {
   assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 20 }).ok, true);
   assert.equal(lib.validateStockPayload({ book_id: "B001", stock_delta: 0 }).ok, false);
@@ -544,6 +552,47 @@ test("runIssue rejects when the stock cell is non-numeric (no writes)", async ()
   assert.equal(client.calls.length, 0, "no writes happened");
 });
 
+test("runIssue issues multiple books via books array and logs one activity row", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B001","GoldenA","Math","Core","85","40","10"],["B002","GoldenA","English","Core","78","25","10"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", "B002"] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.rows, [{ book_id: "B001", stock_qty: 39 }, { book_id: "B002", stock_qty: 24 }]);
+  assert.equal(client.calls[0].range, "Books!F2");
+  assert.deepEqual(client.calls[0].values, [["39"]]);
+  assert.equal(client.calls[1].range, "Books!F3");
+  assert.deepEqual(client.calls[1].values, [["24"]]);
+  assert.equal(client.calls[2].tab, "Activity");
+  assert.match(client.calls[2].rows[0][2], /Books issued to Abena Mensah \[B001,B002\]/);
+});
+
+test("runIssue multi-book rejects when any book lacks stock (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B001","GoldenA","Math","Core","85","0","10"],["B002","GoldenA","English","Core","78","25","10"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", "B002"] });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /insufficient stock for Math/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runIssue multi-book reports unknown book ids", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","Math","Core","85","40","10"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", "B999"] });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /book_id not found: B999/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
 test("runStock rejects when the stock cell is non-numeric (no writes)", async () => {
   const client = makeFakeClient({
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","1.2.3","10"]]
@@ -570,6 +619,41 @@ const FIXTURE_BOOKS = [
   { bookId: "B2", subject: "Maths", publisher: "B", stockQty: 4, lowStockThreshold: 5 },
   { bookId: "B3", subject: "Science", publisher: "C", stockQty: 0, lowStockThreshold: 3 }
 ];
+
+test("viewModels.issuedBookIds parses issue tokens per student", () => {
+  const activity = [
+    { type: "issue", description: "Books issued to Abena Mensah [B001,B002]" },
+    { type: "issue", description: "Books issued to Kwabena Yaw [B003]" },
+    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
+    { type: "issue", description: "Books issued to Abena Mensah" }
+  ];
+  assert.deepEqual(vm.issuedBookIds(activity, { name: "Abena Mensah" }), ["B001", "B002"]);
+  assert.deepEqual(vm.issuedBookIds(activity, { name: "Kwabena Yaw" }), ["B003"]);
+  assert.deepEqual(vm.issuedBookIds(activity, { name: "No One" }), []);
+  assert.deepEqual(vm.issuedBookIds([], { name: "Abena Mensah" }), []);
+});
+
+test("viewModels.issueEligibleBooks filters by class, price <= paid, stock, and issued", () => {
+  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 200 };
+  const books = [
+    { bookId: "B1", category: "KG 1", price: 70, stockQty: 5, publisher: "GES" },
+    { bookId: "B2", category: "KG 1", price: 220, stockQty: 5, publisher: "GES" },
+    { bookId: "B3", category: "KG 1", price: 70, stockQty: 0, publisher: "GES" },
+    { bookId: "B4", category: "KG 2", price: 60, stockQty: 5, publisher: "GES" },
+    { bookId: "B5", category: "KG 1", price: 60, stockQty: 5, publisher: "Exercise Book" },
+    { bookId: "B6", category: "KG 1", price: 60, stockQty: 5, publisher: "GES" }
+  ];
+  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B6]" }];
+  const got = vm.issueEligibleBooks(books, student, activity);
+  assert.deepEqual(got.map(b => b.bookId), ["B1"]);
+});
+
+test("viewModels.issueEligibleBooks returns empty for missing class or zero paid", () => {
+  const books = [{ bookId: "B1", category: "KG 1", price: 70, stockQty: 5, publisher: "GES" }];
+  assert.deepEqual(vm.issueEligibleBooks(books, { className: "", booksPaid: 200 }, []), []);
+  assert.deepEqual(vm.issueEligibleBooks(books, { className: "KG 1", booksPaid: 0 }, []), []);
+  assert.deepEqual(vm.issueEligibleBooks([], { className: "KG 1", booksPaid: 200 }, []), []);
+});
 
 test("viewModels.pageForHash maps known hashes", () => {
   assert.equal(vm.pageForHash("#payments"), "payments");

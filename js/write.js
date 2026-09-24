@@ -43,6 +43,7 @@
 
   let studentBooks = [];
   let studentFees = [];
+  let issueOpts = null;
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -88,18 +89,46 @@
         .join("");
       fillClassFields(classSel.value);
     }
-    if (name === "payment" || name === "issue") {
-      const studentSel = dialogs[name].querySelector("[data-student]");
+    if (name === "payment") {
+      const studentSel = dialogs.payment.querySelector("[data-student]");
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
         .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
         .join("");
     }
-    if (name === "issue" || name === "stock") {
-      const bookSel = dialogs[name].querySelector("[data-book]");
+    if (name === "issue") {
+      issueOpts = opts;
+      const studentSel = dialogs.issue.querySelector("[data-student]");
+      studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
+        .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
+        .join("");
+      renderIssueBooks("");
+    }
+    if (name === "stock") {
+      const bookSel = dialogs.stock.querySelector("[data-book]");
       bookSel.innerHTML = '<option value="">Select book…</option>' + opts.books
         .map(b => '<option value="' + esc(b.bookId) + '" data-stock="' + b.stockQty + '">' + esc(b.subject) + " — " + esc(b.publisher) + " (stock " + b.stockQty + ")</option>")
         .join("");
     }
+  }
+
+  function renderIssueBooks(studentId) {
+    const box = dialogs.issue.querySelector("[data-books]");
+    if (!box || !issueOpts) return;
+    const student = (issueOpts.students || []).find(s => s.studentId === studentId);
+    if (!student) {
+      box.innerHTML = '<p class="empty-note">Select a student to see their available books.</p>';
+      return;
+    }
+    const eligible = root.viewModels.issueEligibleBooks(issueOpts.books, student, issueOpts.activity);
+    if (!eligible.length) {
+      box.innerHTML = '<p class="empty-note">No books available for ' + esc(student.name) + " right now.</p>";
+      return;
+    }
+    box.innerHTML = eligible.map(b =>
+      '<label class="book-option"><input type="checkbox" data-book-check value="' + esc(b.bookId) + '">' +
+      '<span class="book-name">' + esc(b.subject) + "<small>" + esc(b.publisher) + " · stock " + b.stockQty + "</small></span>" +
+      '<span class="price">GH₵' + Number(b.price) + "</span></label>"
+    ).join("");
   }
 
   function readValue(dlg, sel) {
@@ -166,21 +195,22 @@
     }
   });
 
+  dialogs.issue.querySelector("[data-student]").addEventListener("change", e => {
+    renderIssueBooks(e.currentTarget.value);
+  });
+
   dialogs.issue.addEventListener("submit", async e => {
     e.preventDefault();
     const dlg = e.currentTarget;
     const studentId = readValue(dlg, "[data-student]");
-    const bookId = readValue(dlg, "[data-book]");
-    const qty = Number(readValue(dlg, "[data-qty]"));
+    const books = Array.prototype.slice.call(dlg.querySelectorAll("[data-book-check]:checked"))
+      .map(cb => cb.value);
     if (!studentId) return showError(dlg, "Select a student.");
-    if (!bookId) return showError(dlg, "Select a book.");
-    if (!Number.isInteger(qty) || qty < 1) return showError(dlg, "Quantity must be a positive whole number.");
-    const bookSell = dlg.querySelector("[data-book]");
-    if (qty > Number(bookSell.selectedOptions[0].dataset.stock)) return showError(dlg, "Quantity exceeds current stock.");
+    if (!books.length) return showError(dlg, "Tick at least one book to issue.");
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.issueBooks({ student_id: studentId, book_id: bookId, qty });
+      await root.write.issueBooks({ student_id: studentId, books });
       dlg.close();
       showToast("Books issued.");
     } catch (err) {

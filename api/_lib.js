@@ -79,8 +79,14 @@ function validateStudentPayload(raw) {
 
 function validateIssuePayload(raw) {
   const p = raw || {};
-  const qty = Number(p.qty);
   if (!p.student_id || typeof p.student_id !== "string") return { ok: false, error: "student_id is required" };
+  if (Array.isArray(p.books)) {
+    const books = p.books.map(String).map(s => s.trim()).filter(Boolean);
+    if (!books.length) return { ok: false, error: "books must contain at least one book_id" };
+    const uniq = books.filter((b, i) => books.indexOf(b) === i);
+    return { ok: true, payload: { student_id: p.student_id, books: uniq } };
+  }
+  const qty = Number(p.qty);
   if (!p.book_id || typeof p.book_id !== "string") return { ok: false, error: "book_id is required" };
   if (!Number.isInteger(qty) || qty < 1) return { ok: false, error: "qty must be a positive integer" };
   return { ok: true, payload: { student_id: p.student_id, book_id: p.book_id, qty: qty } };
@@ -235,21 +241,37 @@ async function runIssue(client, spreadsheetId, payload) {
   const students = await client.sheetsGet(spreadsheetId, "Students!A:B");
   const foundStudent = findRowIndex(students, "student_id", payload.student_id);
   if (!foundStudent) return { ok: false, error: "student_id not found" };
-  const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
-  const foundBook = findRowIndex(books, "book_id", payload.book_id);
-  if (!foundBook) return { ok: false, error: "book_id not found" };
-  const bookRow = books[foundBook.rowIndex - 1];
-  const stockQty = cellNum(bookRow[5]);
-  if (payload.qty > stockQty) return { ok: false, error: "insufficient stock: only " + stockQty + " available" };
-  const subject = bookRow[2];
   const studentName = students[foundStudent.rowIndex - 1][1];
+
+  const requests = payload.books
+    ? payload.books.map(bookId => ({ book_id: bookId, qty: 1 }))
+    : [{ book_id: payload.book_id, qty: payload.qty }];
+
+  const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
+  const resolved = [];
+  for (const req of requests) {
+    const foundBook = findRowIndex(books, "book_id", req.book_id);
+    if (!foundBook) return { ok: false, error: "book_id not found: " + req.book_id };
+    const bookRow = books[foundBook.rowIndex - 1];
+    const stockQty = cellNum(bookRow[5]);
+    if (req.qty > stockQty) return { ok: false, error: "insufficient stock for " + bookRow[2] + ": only " + stockQty + " available" };
+    resolved.push({ foundBook, bookRow, stockQty, qty: req.qty });
+  }
+
   const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
   const activityId = nextId(activity, "A");
-  await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + foundBook.rowIndex, [[String(stockQty - payload.qty)]]);
+  const issuedIds = resolved.map(x => x.bookRow[0]).join(",");
+  for (const x of resolved) {
+    await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + x.foundBook.rowIndex, [[String(x.stockQty - x.qty)]]);
+  }
   await client.sheetsAppend(spreadsheetId, "Activity", [[
-    activityId, "issue", "Books issued to " + studentName, "0", todayISO()
+    activityId, "issue", "Books issued to " + studentName + " [" + issuedIds + "]", "0", todayISO()
   ]]);
-  return { ok: true, row: { book_id: payload.book_id, stock_qty: stockQty - payload.qty } };
+  if (payload.books) {
+    return { ok: true, rows: resolved.map(x => ({ book_id: x.bookRow[0], stock_qty: x.stockQty - x.qty })) };
+  }
+  const single = resolved[0];
+  return { ok: true, row: { book_id: single.bookRow[0], stock_qty: single.stockQty - single.qty } };
 }
 
 async function runStock(client, spreadsheetId, payload) {
