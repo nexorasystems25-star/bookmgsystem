@@ -292,6 +292,31 @@ async function runIssue(client, spreadsheetId, payload) {
 
 async function runStock(client, spreadsheetId, payload) {
   const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
+  const resolve = (bookId, delta) => {
+    const foundBook = findRowIndex(books, "book_id", bookId);
+    if (!foundBook) return { error: "book_id not found: " + bookId };
+    const bookRow = books[foundBook.rowIndex - 1];
+    const stockQty = cellNum(bookRow[5]);
+    const newQty = stockQty + delta;
+    if (newQty < 0) return { error: "stock cannot go below zero for " + bookRow[2] };
+    return { foundBook, bookRow, stockQty, newQty, delta };
+  };
+
+  if (payload.stock_adjustments) {
+    const resolved = payload.stock_adjustments.map(item => resolve(item.book_id, item.stockDelta));
+    for (const x of resolved) if (x.error) return { ok: false, error: x.error };
+    const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+    let activityNum = Number(nextId(activity, "A").slice(1));
+    for (const x of resolved) {
+      await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + x.foundBook.rowIndex, [[String(x.newQty)]]);
+    }
+    for (const x of resolved) {
+      const verb = x.delta > 0 ? "New stock added for " : "Stock corrected for ";
+      await client.sheetsAppend(spreadsheetId, "Activity", [["A" + String(activityNum++).padStart(3, "0"), "stock", verb + x.bookRow[2], "0", todayISO()]]);
+    }
+    return { ok: true, rows: resolved.map(x => ({ book_id: x.bookRow[0], stock_qty: x.newQty })) };
+  }
+
   const foundBook = findRowIndex(books, "book_id", payload.book_id);
   if (!foundBook) return { ok: false, error: "book_id not found" };
   const bookRow = books[foundBook.rowIndex - 1];

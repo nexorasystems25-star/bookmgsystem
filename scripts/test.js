@@ -551,6 +551,54 @@ test("runStock rejects when result would be negative", async () => {
   assert.equal(client.calls.length, 0);
 });
 
+test("runStock applies a batch of adjustments and appends one activity row per book", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B001","GoldenA","Math","Core","85","40","10"],["B002","GoldenA","English","Core","78","25","10"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runStock(client, "spr", {
+    stock_adjustments: [{ book_id: "B001", stockDelta: 10 }, { book_id: "B002", stockDelta: -5 }]
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.rows, [{ book_id: "B001", stock_qty: 50 }, { book_id: "B002", stock_qty: 20 }]);
+  assert.equal(client.calls[0].range, "Books!F2");
+  assert.deepEqual(client.calls[0].values, [["50"]]);
+  assert.equal(client.calls[1].range, "Books!F3");
+  assert.deepEqual(client.calls[1].values, [["20"]]);
+  assert.equal(client.calls[2].tab, "Activity");
+  assert.equal(client.calls[2].rows[0][0], "A007");
+  assert.match(client.calls[2].rows[0][2], /New stock added for Math/);
+  assert.equal(client.calls[3].tab, "Activity");
+  assert.equal(client.calls[3].rows[0][0], "A008");
+  assert.match(client.calls[3].rows[0][2], /Stock corrected for English/);
+});
+
+test("runStock batch aborts all writes when any adjustment would go below zero", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B001","GoldenA","Math","Core","85","5","10"],["B002","GoldenA","English","Core","78","25","10"]]
+  });
+  const r = await lib.runStock(client, "spr", {
+    stock_adjustments: [{ book_id: "B001", stockDelta: -10 }, { book_id: "B002", stockDelta: 10 }]
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /below zero/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runStock batch reports unknown book ids without writing", async () => {
+  const client = makeFakeClient({
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","Math","Core","85","40","10"]]
+  });
+  const r = await lib.runStock(client, "spr", {
+    stock_adjustments: [{ book_id: "B001", stockDelta: 10 }, { book_id: "B999", stockDelta: 5 }]
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /book_id not found: B999/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
 test("cellNum returns 0 for blank cells and throws on non-numeric values", async () => {
   assert.equal(lib.cellNum(1200), 1200);
   assert.equal(lib.cellNum("1200"), 1200);
