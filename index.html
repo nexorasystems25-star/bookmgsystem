@@ -483,8 +483,8 @@
     <form method="dialog">
       <div class="modal-head"><h3>Adjust stock</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
       <div class="modal-body">
-        <label>Book<select data-book required></select></label>
-        <label>Adjustment<small>Positive adds stock, negative removes.</small><input type="number" data-delta step="1" required></label>
+        <label>Class<select data-class required></select></label>
+        <label>Books<small>Positive adds stock, negative removes. Leave blank or 0 to skip a book.</small><div class="book-list" data-stock-list><p class="empty-note">Select a class to see its books.</p></div></label>
         <p class="modal-error" data-error hidden></p>
       </div>
       <div class="modal-foot">
