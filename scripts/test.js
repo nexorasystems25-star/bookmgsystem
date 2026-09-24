@@ -286,12 +286,12 @@ test("validateStockPayload accepts a stock_adjustments batch array", () => {
 });
 
 test("validateStockPayload rejects bad batch entries", () => {
-  assert.equal(lib.validateStockPayload({ stock_adjustments: [] }).ok, false);
-  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ stock_delta: 10 }] }).ok, false);
-  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 0 }] }).ok, false);
-  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 1.5 }] }).ok, false);
-  assert.equal(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 5 }, { book_id: "B001", stock_delta: 5 }] }).ok, false);
-  assert.equal(lib.validateStockPayload({ stock_adjustments: "B001" }).ok, false);
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: [] }), { ok: false, error: "stock_adjustments must contain at least one adjustment" });
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: [{ stock_delta: 10 }] }), { ok: false, error: "adjustment 0: book_id is required" });
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 0 }] }), { ok: false, error: "adjustment 0: stock_delta must be a non-zero integer" });
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 1.5 }] }), { ok: false, error: "adjustment 0: stock_delta must be a non-zero integer" });
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: [{ book_id: "B001", stock_delta: 5 }, { book_id: "B001", stock_delta: 5 }] }), { ok: false, error: "adjustment 1: duplicate book_id B001" });
+  assert.deepEqual(lib.validateStockPayload({ stock_adjustments: "B001" }), { ok: false, error: "book_id is required" });
 });
 
 test("client contract: write.js sends snake_case payloads (camelCase rejected)", () => {
