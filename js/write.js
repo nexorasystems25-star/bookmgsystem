@@ -44,6 +44,7 @@
   let studentBooks = [];
   let studentFees = [];
   let issueOpts = null;
+  let stockOpts = null;
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -104,10 +105,12 @@
       renderIssueBooks("");
     }
     if (name === "stock") {
-      const bookSel = dialogs.stock.querySelector("[data-book]");
-      bookSel.innerHTML = '<option value="">Select book…</option>' + opts.books
-        .map(b => '<option value="' + esc(b.bookId) + '" data-stock="' + b.stockQty + '">' + esc(b.subject) + " — " + esc(b.publisher) + " (stock " + b.stockQty + ")</option>")
+      stockOpts = opts;
+      const classSel = dialogs.stock.querySelector("[data-class]");
+      classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(opts.books)
+        .map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>")
         .join("");
+      renderStockBooks("");
     }
   }
 
@@ -128,6 +131,25 @@
       '<label class="book-option"><input type="checkbox" data-book-check value="' + esc(b.bookId) + '">' +
       '<span class="book-name">' + esc(b.subject) + "<small>" + esc(b.publisher) + " · stock " + b.stockQty + "</small></span>" +
       '<span class="price">GH₵' + Number(b.price) + "</span></label>"
+    ).join("");
+  }
+
+  function renderStockBooks(className) {
+    const box = dialogs.stock.querySelector("[data-stock-list]");
+    if (!box || !stockOpts) return;
+    if (!className) {
+      box.innerHTML = '<p class="empty-note">Select a class to see its books.</p>';
+      return;
+    }
+    const classBooks = stockOpts.books.filter(b => b.category === className);
+    if (!classBooks.length) {
+      box.innerHTML = '<p class="empty-note">No books for ' + esc(className) + " right now.</p>";
+      return;
+    }
+    box.innerHTML = classBooks.map(b =>
+      '<label class="book-option"><span class="book-name">' + esc(b.subject) +
+      '<small>' + esc(b.publisher) + " · stock " + b.stockQty + "</small></span>" +
+      '<input type="number" class="qty" step="1" data-qty data-book="' + esc(b.bookId) + '" placeholder="0"></label>'
     ).join("");
   }
 
@@ -199,6 +221,10 @@
     renderIssueBooks(e.currentTarget.value);
   });
 
+  dialogs.stock.querySelector("[data-class]").addEventListener("change", e => {
+    renderStockBooks(e.currentTarget.value);
+  });
+
   dialogs.issue.addEventListener("submit", async e => {
     e.preventDefault();
     const dlg = e.currentTarget;
@@ -223,14 +249,17 @@
   dialogs.stock.addEventListener("submit", async e => {
     e.preventDefault();
     const dlg = e.currentTarget;
-    const bookId = readValue(dlg, "[data-book]");
-    const delta = Number(readValue(dlg, "[data-delta]"));
-    if (!bookId) return showError(dlg, "Select a book.");
-    if (!Number.isInteger(delta) || delta === 0) return showError(dlg, "Adjustment must be a non-zero whole number (use − to reduce).");
+    const adjustments = Array.prototype.slice.call(dlg.querySelectorAll("[data-qty]"))
+      .filter(inp => {
+        const v = Number(inp.value);
+        return v !== 0 && Number.isInteger(v);
+      })
+      .map(inp => ({ book_id: inp.dataset.book, stock_delta: Number(inp.value) }));
+    if (!adjustments.length) return showError(dlg, "Enter a quantity for at least one book.");
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.adjustStock({ book_id: bookId, stock_delta: delta });
+      await root.write.adjustStock({ stock_adjustments: adjustments });
       dlg.close();
       showToast("Stock adjusted.");
     } catch (err) {
