@@ -202,6 +202,8 @@
             </div>
             <div class="head-actions">
               <button class="btn btn-primary" type="button" data-action="student">+ Register student</button>
+              <button class="btn btn-light" type="button" data-action="student-txt">+ Textbooks</button>
+              <button class="btn btn-light" type="button" data-action="student-ex">+ ExBooks</button>
             </div>
           </div>
           <section class="panel">
@@ -444,8 +446,13 @@
 
   <dialog class="modal" id="dlgStudent">
     <form method="dialog">
-      <div class="modal-head"><h3>Register student</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-head"><h3 data-student-heading>Register student</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
       <div class="modal-body">
+        <div class="chip-row" data-student-modes>
+          <button type="button" class="btn btn-light" data-mode="textbook">Textbooks</button>
+          <button type="button" class="btn btn-light" data-mode="exbooks">ExBooks</button>
+          <button type="button" class="btn btn-primary" data-mode="both">Both</button>
+        </div>
         <label>Full name<input type="text" data-name required></label>
         <label>Class<select data-class required><option value="">Select class…</option></select></label>
         <label>Gender<select data-gender>
@@ -453,9 +460,9 @@
           <option value="male">Male</option>
           <option value="female">Female</option>
         </select></label>
-        <label>Books fee (GHS)<input type="number" data-fee min="0" step="0.01" required></label>
-        <label>Books total<input type="number" data-total min="0" step="1" required></label>
-        <label>Exercise books<input type="number" data-exbooks min="0" step="1" required></label>
+        <label data-mode-show="both,textbook">Books fee (GHS)<input type="number" data-fee min="0" step="0.01" required></label>
+        <label data-mode-show="both,textbook">Books total<input type="number" data-total min="0" step="1" required></label>
+        <label data-mode-show="both,exbooks">Exercise books<input type="number" data-exbooks min="0" step="1" required></label>
         <p class="modal-error" data-error hidden></p>
       </div>
       <div class="modal-foot">
