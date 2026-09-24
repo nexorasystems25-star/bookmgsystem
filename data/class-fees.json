@@ -1,46 +1,57 @@
 [
   {
     "class": "Creche",
-    "fee": "380"
+    "fee": "380",
+    "exbooks": "0"
   },
   {
     "class": "Nursery 1",
-    "fee": "390"
+    "fee": "390",
+    "exbooks": "20"
   },
   {
     "class": "Nursery 2",
-    "fee": "395"
+    "fee": "395",
+    "exbooks": "20"
   },
   {
     "class": "KG 1",
-    "fee": "400"
+    "fee": "400",
+    "exbooks": "20"
   },
   {
     "class": "KG 2",
-    "fee": "410"
+    "fee": "410",
+    "exbooks": "20"
   },
   {
     "class": "BS 1",
-    "fee": "420"
+    "fee": "420",
+    "exbooks": "15"
   },
   {
     "class": "BS 2",
-    "fee": "430"
+    "fee": "430",
+    "exbooks": "15"
   },
   {
     "class": "BS 3",
-    "fee": "440"
+    "fee": "440",
+    "exbooks": "15"
   },
   {
     "class": "BS 4",
-    "fee": "450"
+    "fee": "450",
+    "exbooks": "15"
   },
   {
     "class": "BS 5",
-    "fee": "460"
+    "fee": "460",
+    "exbooks": "15"
   },
   {
     "class": "BS 6",
-    "fee": "470"
+    "fee": "470",
+    "exbooks": "15"
   }
 ]
