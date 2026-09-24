@@ -191,6 +191,8 @@
       const show = row.dataset.modeShow.split(",").indexOf(studentMode) !== -1;
       row.hidden = !show;
       row.style.display = show ? "" : "none";
+      const input = row.querySelector("input");
+      if (input) input.required = show;
     });
     dialogs.student.querySelectorAll("[data-student-modes] [data-mode]").forEach(btn => {
       const active = btn.dataset.mode === studentMode;
