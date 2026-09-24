@@ -191,6 +191,13 @@
     return parts.length ? label + " \u2014 " + parts.join(" \u2014 ") : label;
   }
 
+  function purchasePayload(mode, values) {
+    const fee = mode === "exbooks" ? 0 : Number(values.fee || 0);
+    const total = mode === "exbooks" ? 0 : Number(values.total || 0);
+    const exbooks = mode === "textbook" ? 0 : Number(values.exbooks || 0);
+    return { fee, total, exbooks };
+  }
+
   function availableYears(students, config) {
     const set = {};
     (students || []).forEach(s => {
@@ -314,6 +321,7 @@
     classOptionLabel,
     isExerciseBook,
     issuedBookIds,
-    issueEligibleBooks
+    issueEligibleBooks,
+    purchasePayload
   };
 });

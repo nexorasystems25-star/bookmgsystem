@@ -1146,4 +1146,33 @@ test("viewModels.notifications returns empty for an empty healthy dataset", () =
   assert.deepEqual(n, []);
 });
 
+test("viewModels.purchasePayload posts fee and total in textbook mode, zeroes exbooks", () => {
+  const p = vm.purchasePayload("textbook", { fee: "120", total: "5", exbooks: "2" });
+  assert.equal(p.fee, 120);
+  assert.equal(p.total, 5);
+  assert.equal(p.exbooks, 0);
+});
+
+test("viewModels.purchasePayload zeroes fee and total in exbooks mode, keeps exbooks", () => {
+  const p = vm.purchasePayload("exbooks", { fee: "120", total: "5", exbooks: "2" });
+  assert.equal(p.fee, 0);
+  assert.equal(p.total, 0);
+  assert.equal(p.exbooks, 2);
+});
+
+test("viewModels.purchasePayload passes all values through in both mode", () => {
+  const p = vm.purchasePayload("both", { fee: 120, total: 5, exbooks: 2 });
+  assert.deepEqual(p, { fee: 120, total: 5, exbooks: 2 });
+});
+
+test("viewModels.purchasePayload treats an unknown mode like both", () => {
+  const p = vm.purchasePayload("unknown", { fee: 120, total: 5, exbooks: 2 });
+  assert.deepEqual(p, { fee: 120, total: 5, exbooks: 2 });
+});
+
+test("viewModels.purchasePayload defaults missing values to zero", () => {
+  const p = vm.purchasePayload("both", {});
+  assert.deepEqual(p, { fee: 0, total: 0, exbooks: 0 });
+});
+
 console.log(pass + " tests passed");
