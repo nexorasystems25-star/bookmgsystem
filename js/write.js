@@ -45,6 +45,7 @@
   let studentFees = [];
   let issueOpts = null;
   let stockOpts = null;
+  let stockMode = "textbook";
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -58,10 +59,11 @@
     if (el) el.hidden = true;
   }
 
-  function openDialog(name) {
+  function openDialog(name, mode) {
     const dlg = dialogs[name];
     if (!dlg) return;
     clearError(dlg);
+    if (name === "stock") stockMode = mode === "exbooks" ? "exbooks" : "textbook";
     populate(name).then(() => dlg.showModal());
   }
 
@@ -69,6 +71,8 @@
     const action = btn.dataset.action;
     if (action in dialogs) {
       btn.addEventListener("click", () => openDialog(action));
+    } else if (action === "stock-ex") {
+      btn.addEventListener("click", () => openDialog("stock", "exbooks"));
     }
   });
 
@@ -77,6 +81,10 @@
       const dlg = btn.closest("dialog");
       if (dlg) dlg.close();
     });
+  });
+
+  dialogs.stock.addEventListener("close", () => {
+    stockMode = "textbook";
   });
 
   async function populate(name) {
@@ -106,10 +114,14 @@
     }
     if (name === "stock") {
       stockOpts = opts;
+      const ex = stockMode === "exbooks";
+      const cats = root.viewModels[ex ? "exerciseBookCategories" : "bookCategories"](opts.books);
       const classSel = dialogs.stock.querySelector("[data-class]");
-      classSel.innerHTML = '<option value="">Select class…</option>' + root.viewModels.bookCategories(opts.books)
+      classSel.innerHTML = '<option value="">' + (ex ? "Select size…" : "Select class…") + "</option>" + cats
         .map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>")
         .join("");
+      const title = dialogs.stock.querySelector(".modal-head h3");
+      if (title) title.textContent = ex ? "Adjust stock — ExBooks" : "Adjust stock — Books";
       renderStockBooks("");
     }
   }
@@ -138,7 +150,7 @@
     const box = dialogs.stock.querySelector("[data-stock-list]");
     if (!box || !stockOpts) return;
     if (!className) {
-      box.innerHTML = '<p class="empty-note">Select a class to see its books.</p>';
+      box.innerHTML = '<p class="empty-note">' + (stockMode === "exbooks" ? "Select an exercise size to see its books." : "Select a class to see its books.") + "</p>";
       return;
     }
     const classBooks = stockOpts.books.filter(b => b.category === className);
