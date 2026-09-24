@@ -69,11 +69,12 @@ function validateStudentPayload(raw) {
   const p = raw || {};
   const fee = Number(p.books_fee);
   const total = Number(p.books_total);
+  const exbooks = Number(p.exbooks || 0);
   if (!p.name || !String(p.name).trim()) return { ok: false, error: "name is required" };
   if (!p.class || !String(p.class).trim()) return { ok: false, error: "class is required" };
   if (GENDERS.indexOf(p.gender) === -1) return { ok: false, error: "gender must be male or female" };
-  if (!(fee >= 0) || !(total >= 0)) return { ok: false, error: "books_fee and books_total must be non-negative numbers" };
-  return { ok: true, payload: { name: String(p.name).trim(), className: String(p.class).trim(), gender: p.gender, booksFee: fee, booksTotal: total, academicYear: p.academic_year || "2026/2027" } };
+  if (!(fee >= 0) || !(total >= 0) || !(exbooks >= 0)) return { ok: false, error: "books_fee, books_total and exbooks must be non-negative numbers" };
+  return { ok: true, payload: { name: String(p.name).trim(), className: String(p.class).trim(), gender: p.gender, booksFee: fee, booksTotal: total, exbooks: exbooks, academicYear: p.academic_year || "2026/2027" } };
 }
 
 function validateIssuePayload(raw) {
@@ -190,7 +191,7 @@ function cellNum(v) {
 }
 
 async function runPayment(client, spreadsheetId, payload) {
-  const students = await client.sheetsGet(spreadsheetId, "Students!A:I");
+  const students = await client.sheetsGet(spreadsheetId, "Students!A:J");
   const found = findRowIndex(students, "student_id", payload.student_id);
   if (!found) return { ok: false, error: "student_id not found" };
   const row = students[found.rowIndex - 1];
@@ -208,7 +209,7 @@ async function runPayment(client, spreadsheetId, payload) {
     paymentId, payload.student_id, name, klass, String(payload.amount), payload.method, payload.date, "confirmed"
   ]]);
   await client.sheetsUpdate(spreadsheetId, "Students!" + colLetter(6) + found.rowIndex, [[String(newPaid)]]);
-  await client.sheetsUpdate(spreadsheetId, "Students!" + colLetter(8) + found.rowIndex, [[status]]);
+  await client.sheetsUpdate(spreadsheetId, "Students!" + colLetter(9) + found.rowIndex, [[status]]);
   await client.sheetsAppend(spreadsheetId, "Activity", [[
     activityId, "payment", (newPaid >= fee ? "Payment received from " : "Partial payment from ") + name, String(payload.amount), payload.date
   ]]);
@@ -222,7 +223,7 @@ async function runStudent(client, spreadsheetId, payload) {
   const activityId = nextId(activity, "A");
   await client.sheetsAppend(spreadsheetId, "Students", [[
     studentId, payload.name, payload.className, payload.gender, payload.academicYear,
-    String(payload.booksFee), "0", String(payload.booksTotal), "not covered"
+    String(payload.booksFee), "0", String(payload.booksTotal), String(payload.exbooks), "not covered"
   ]]);
   await client.sheetsAppend(spreadsheetId, "Activity", [[
     activityId, "student", "New student record created for " + payload.name, "0", todayISO()

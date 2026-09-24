@@ -239,6 +239,22 @@ test("validateStudentPayload rejects bad input", () => {
   assert.equal(lib.validateStudentPayload({ name: "Ama", class: "JS 1", gender: "female", books_fee: -1, books_total: 1 }).ok, false);
 });
 
+test("validateStudentPayload accepts and forwards exbooks", () => {
+  const r = lib.validateStudentPayload({ name: "Ama Serwaa", class: "JS 1", gender: "female", books_fee: "1400", books_total: "10", exbooks: "15" });
+  assert.equal(r.ok, true);
+  assert.equal(r.payload.exbooks, 15);
+});
+
+test("validateStudentPayload defaults exbooks to zero", () => {
+  const r = lib.validateStudentPayload({ name: "Ama", class: "JS 1", gender: "female", books_fee: 1, books_total: 1 });
+  assert.equal(r.ok, true);
+  assert.equal(r.payload.exbooks, 0);
+});
+
+test("validateStudentPayload rejects negative exbooks", () => {
+  assert.equal(lib.validateStudentPayload({ name: "Ama", class: "JS 1", gender: "female", books_fee: 1, books_total: 1, exbooks: -1 }).ok, false);
+});
+
 test("validateIssuePayload accepts valid input and rejects bad", () => {
   assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 2 }).ok, true);
   assert.equal(lib.validateIssuePayload({ student_id: "S001", book_id: "B001", qty: 0 }).ok, false);
@@ -405,7 +421,7 @@ function makeFakeClient(gets) {
 test("runPayment appends payment, updates student, appends activity", async () => {
   const stats = lib.recomputeStatus;
   const client = makeFakeClient({
-    "Students!A:I": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","waiting"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Payments!A:A": [["payment_id"],["P008"]],
     "Activity!A:A": [["activity_id"],["A006"]]
   });
@@ -420,7 +436,7 @@ test("runPayment appends payment, updates student, appends activity", async () =
   assert.equal(ops[1].range, "Students!G2");
   assert.deepEqual(ops[1].values, [["1200"]]);
   assert.equal(ops[2].op, "update");
-  assert.equal(ops[2].range, "Students!I2");
+  assert.equal(ops[2].range, "Students!J2");
   assert.deepEqual(ops[2].values, [[stats(1200, 1200)]]);
   assert.equal(ops[3].op, "append");
   assert.equal(ops[3].tab, "Activity");
@@ -429,7 +445,7 @@ test("runPayment appends payment, updates student, appends activity", async () =
 
 test("runPayment uses partial wording when paid is below fee", async () => {
   const client = makeFakeClient({
-    "Students!A:I": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","status"],["S003","Ama Serwaa","JS 1","female","2026/2027","1400","700","10","waiting"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S003","Ama Serwaa","JS 1","female","2026/2027","1400","700","10","3","waiting"]],
     "Payments!A:A": [["payment_id"],["P008"]],
     "Activity!A:A": [["activity_id"],["A006"]]
   });
@@ -439,7 +455,7 @@ test("runPayment uses partial wording when paid is below fee", async () => {
 });
 
 test("runPayment rejects missing student", async () => {
-  const client = makeFakeClient({ "Students!A:I": [["student_id"]] });
+  const client = makeFakeClient({ "Students!A:J": [["student_id"]] });
   const r = await lib.runPayment(client, "spr", { student_id: "S999", amount: 100, method: "Cash" });
   assert.equal(r.ok, false);
   assert.match(r.error, /not found/);
@@ -451,11 +467,11 @@ test("runStudent appends student + activity", async () => {
     "Students!A:A": [["student_id"],["S009"]],
     "Activity!A:A": [["activity_id"],["A006"]]
   });
-  const r = await lib.runStudent(client, "spr", { name: "Araba Quaicoe", className: "BS 4", gender: "female", booksFee: 1350, booksTotal: 9, academicYear: "2026/2027" });
+  const r = await lib.runStudent(client, "spr", { name: "Araba Quaicoe", className: "BS 4", gender: "female", booksFee: 1350, booksTotal: 9, exbooks: 2, academicYear: "2026/2027" });
   assert.equal(r.ok, true);
   assert.equal(r.row.student_id, "S010");
   assert.equal(client.calls[0].tab, "Students");
-  assert.deepEqual(client.calls[0].rows[0].slice(0, 9), ["S010","Araba Quaicoe","BS 4","female","2026/2027","1350","0","9","not covered"]);
+  assert.deepEqual(client.calls[0].rows[0].slice(0, 10), ["S010","Araba Quaicoe","BS 4","female","2026/2027","1350","0","9","2","not covered"]);
   assert.equal(client.calls[1].tab, "Activity");
   assert.match(client.calls[1].rows[0][2], /New student record created for Araba Quaicoe/);
 });
