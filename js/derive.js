@@ -42,6 +42,7 @@
       booksFee: num(r.books_fee),
       booksPaid: num(r.books_paid),
       booksTotal: num(r.books_total),
+      exbooks: num(r.exbooks),
       status: String(r.status || "").toLowerCase().trim()
     }));
   }
@@ -86,7 +87,8 @@
       .filter(r => r && !r.student_id && !r.name && (r.class || r.className) && (r.fee || r.books_fee))
       .map(r => ({
         className: String(r.class || r.className || "").trim(),
-        fee: num(r.fee || r.books_fee)
+        fee: num(r.fee || r.books_fee),
+        exbooks: num(r.exbooks)
       }));
   }
 

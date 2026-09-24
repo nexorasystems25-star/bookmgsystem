@@ -127,6 +127,14 @@ test("normalizeStudents casts amounts and keeps fields", () => {
   assert.equal(rows[2].booksTotal, 300);
 });
 
+test("normalizeStudents reads exbooks column", () => {
+  const rows = derive.normalizeStudents([
+    { student_id: "CEC-001", name: "Ama Serwaa", class: "KG 1", gender: "F", academic_year: "2026/2027", books_fee: "400", books_paid: "0", books_total: "6", exbooks: "20", status: "not covered" }
+  ]);
+  assert.equal(rows[0].booksTotal, 6);
+  assert.equal(rows[0].exbooks, 20);
+});
+
 test("buildReadiness counts status thirds", () => {
   const r = derive.buildReadiness(derive.normalizeStudents(STUDENTS));
   assert.deepEqual(r, { ready: 1, waiting: 1, uncovered: 1, covered: 2, coveredPct: 67 });
@@ -670,7 +678,7 @@ test("viewModels.classBookInfo returns zeroed info for unknown/empty", () => {
   const fees = [{ className: "KG 1", fee: 400, exbooks: 20 }];
   assert.deepEqual(vm.classBookInfo(books, "JS 1", fees), { count: 0, fee: 0, exbooks: 0 });
   assert.deepEqual(vm.classBookInfo(books, "", fees), { count: 0, fee: 0, exbooks: 0 });
-  assert.deepEqual(vm.classBookInfo([], "KG 1", fees), { count: 0, fee: 0, exbooks: 0 });
+  assert.deepEqual(vm.classBookInfo([], "KG 1", [{ className: "BS 1", fee: 420, exbooks: 15 }]), { count: 0, fee: 0, exbooks: 0 });
 });
 
 test("viewModels.classOptionLabel renders textbook count and fee inline", () => {
@@ -710,34 +718,43 @@ test("viewModels.bookCountForClass counts textbooks only", () => {
   assert.equal(vm.bookCountForClass(books, "KG 1"), 2);
 });
 
-test("derive.normalizeClassFees reads class/fee columns", () => {
+test("derive.normalizeClassFees reads class/fee/exbooks columns", () => {
   const rows = [
-    { class: "KG 1", fee: "400" },
-    { class: "BS 2", fee: 430 }
+    { class: "KG 1", fee: "400", exbooks: "20" },
+    { class: "BS 2", fee: "430", exbooks: "15" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400 },
-    { className: "BS 2", fee: 430 }
+    { className: "KG 1", fee: 400, exbooks: 20 },
+    { className: "BS 2", fee: 430, exbooks: 15 }
+  ]);
+});
+
+test("derive.normalizeClassFees defaults exbooks to zero", () => {
+  const rows = [
+    { class: "KG 1", fee: "400" }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "KG 1", fee: 400, exbooks: 0 }
   ]);
 });
 
 test("derive.normalizeClassFees drops rows with empty fee", () => {
   const rows = [
     { class: "Nursery 1", fee: "" },
-    { class: "KG 1", fee: "400" }
+    { class: "KG 1", fee: "400", exbooks: "20" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400 }
+    { className: "KG 1", fee: 400, exbooks: 20 }
   ]);
 });
 
 test("derive.normalizeClassFees rejects foreign rows (e.g. student sheet)", () => {
   const rows = [
     { class: "N2", fee: "300", student_id: "S001", name: "Richmond" },
-    { class: "KG 1", fee: "400" }
+    { class: "KG 1", fee: "400", exbooks: "20" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400 }
+    { className: "KG 1", fee: 400, exbooks: 20 }
   ]);
 });
 
