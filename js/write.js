@@ -111,6 +111,7 @@
     const info = root.viewModels.classBookInfo(studentBooks, className, studentFees);
     dialogs.student.querySelector("[data-total]").value = info.count > 0 ? String(info.count) : "";
     dialogs.student.querySelector("[data-fee]").value = info.fee > 0 ? String(info.fee) : "";
+    dialogs.student.querySelector("[data-exbooks]").value = info.exbooks > 0 ? String(info.exbooks) : "";
   }
 
   dialogs.student.querySelector("[data-class]").addEventListener("change", () => {
@@ -147,14 +148,15 @@
     const gender = readValue(dlg, "[data-gender]");
     const fee = Number(readValue(dlg, "[data-fee]"));
     const total = Number(readValue(dlg, "[data-total]"));
+    const exbooks = Number(readValue(dlg, "[data-exbooks]"));
     if (!name) return showError(dlg, "Student name is required.");
     if (!klass) return showError(dlg, "Class is required.");
     if (GENDERS.indexOf(gender) === -1) return showError(dlg, "Select a gender.");
-    if (!(fee >= 0) || !(total >= 0)) return showError(dlg, "Books fee and total must be zero or more.");
+    if (!(fee >= 0) || !(total >= 0) || !(exbooks >= 0)) return showError(dlg, "Books fee, total and exercise books must be zero or more.");
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.registerStudent({ name, class: klass, gender, books_fee: fee, books_total: total });
+      await root.write.registerStudent({ name, class: klass, gender, books_fee: fee, books_total: total, exbooks });
       dlg.close();
       showToast("Student registered.");
     } catch (err) {
