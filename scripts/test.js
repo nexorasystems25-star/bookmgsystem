@@ -1159,9 +1159,22 @@ test("derive.normalizeClassFees ignores non-positive size cells", () => {
 
 test("viewModels.classifyMethod maps method strings", () => {
   assert.equal(vm.classifyMethod("MTN MoMo"), "momo");
+  assert.equal(vm.classifyMethod("Mtn"), "momo");
+  assert.equal(vm.classifyMethod("MTN"), "momo");
   assert.equal(vm.classifyMethod("Telecel"), "telecel");
   assert.equal(vm.classifyMethod("Cash"), "cash");
   assert.equal(vm.classifyMethod(""), "cash");
+});
+
+test("viewModels.methodLabel maps raw entries to canonical names", () => {
+  assert.equal(vm.methodLabel("Mtn"), "MTN MoMo");
+  assert.equal(vm.methodLabel("MTN"), "MTN MoMo");
+  assert.equal(vm.methodLabel("MTN MoMo"), "MTN MoMo");
+  assert.equal(vm.methodLabel("mtn momo"), "MTN MoMo");
+  assert.equal(vm.methodLabel("Telecel"), "Telecel");
+  assert.equal(vm.methodLabel("Cash"), "Cash");
+  assert.equal(vm.methodLabel(" Cash "), "Cash");
+  assert.equal(vm.methodLabel(""), "");
 });
 
 test("viewModels.studentOutstanding is never negative", () => {

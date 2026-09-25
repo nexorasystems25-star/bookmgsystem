@@ -350,7 +350,7 @@
           <td><b>${esc(p.studentName)}</b><small>${esc(p.studentId)}</small></td>
           <td>${esc(p.className)}</td>
           <td>${CEC.derive.formatAmount(p.amount, cur)}</td>
-          <td><span class="method ${CEC.viewModels.classifyMethod(p.method)}">${esc(p.method)}</span></td>
+          <td><span class="method ${CEC.viewModels.classifyMethod(p.method)}">${esc(CEC.viewModels.methodLabel(p.method))}</span></td>
           <td>${esc(p.date)}</td>
           <td><span class="pill success">${esc(p.status || "Recorded")}</span></td>
         </tr>`).join("")

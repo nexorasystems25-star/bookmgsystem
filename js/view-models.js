@@ -26,9 +26,19 @@
 
   function classifyMethod(method) {
     const m = String(method || "").toLowerCase();
-    if (m.indexOf("momo") !== -1) return "momo";
+    if (m.indexOf("momo") !== -1 || m.indexOf("mtn") !== -1) return "momo";
     if (m.indexOf("telecel") !== -1) return "telecel";
     return "cash";
+  }
+
+  function methodLabel(method) {
+    const raw = String(method || "").trim();
+    const m = raw.toLowerCase();
+    if (!m) return "";
+    if (m.indexOf("momo") !== -1 || m.indexOf("mtn") !== -1) return "MTN MoMo";
+    if (m.indexOf("telecel") !== -1) return "Telecel";
+    if (m.indexOf("cash") !== -1) return "Cash";
+    return raw;
   }
 
   function methodSummary(payments) {
@@ -407,6 +417,7 @@
     PAGES,
     pageForHash,
     classifyMethod,
+    methodLabel,
     methodSummary,
     classTotals,
     stockStatus,

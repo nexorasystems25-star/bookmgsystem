@@ -27,7 +27,7 @@
 
   function classifyMethod(method) {
     const m = String(method || "").toLowerCase();
-    if (m.indexOf("momo") !== -1) return "momo";
+    if (m.indexOf("momo") !== -1 || m.indexOf("mtn") !== -1) return "momo";
     if (m.indexOf("telecel") !== -1) return "telecel";
     return "cash";
   }
