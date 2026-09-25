@@ -179,6 +179,27 @@
     return out;
   }
 
+  function issuedBooks(activity, student) {
+    const name = String((student && student.name) || "").trim().toLowerCase();
+    const out = {};
+    (activity || []).forEach(a => {
+      if (String((a && a.type) || "").trim() !== "issue") return;
+      const m = String((a && a.description) || "").match(/^Books issued to (.+?)\s*\[([^\]]*)\]$/i);
+      if (!m) return;
+      if (String(m[1]).trim().toLowerCase() !== name) return;
+      String(m[2]).split(",").forEach(part => {
+        const token = part.trim();
+        if (!token) return;
+        const x = token.match(/^(.+?)x(\d+)$/);
+        const id = x ? x[1] : token;
+        const qty = x ? Number(x[2]) : 1;
+        if (!id) return;
+        out[id] = (out[id] || 0) + qty;
+      });
+    });
+    return out;
+  }
+
   function bookCountForClass(books, className) {
     const target = classKey(className);
     if (!target) return 0;
@@ -348,6 +369,7 @@
     classOptionLabel,
     isExerciseBook,
     issuedBookIds,
+    issuedBooks,
     issueEligibleBooks,
     issueEligibleExBooks,
     purchasePayload

@@ -818,6 +818,24 @@ test("viewModels.issueEligibleExBooks matches abbreviated Nursery class labels (
   assert.deepEqual(got.map(x => x.book.bookId), ["B075"]);
 });
 
+test("viewModels.issuedBooks sums xN quantities across issue entries", () => {
+  const activity = [
+    { type: "issue", description: "Books issued to Abena Mensah [B001,B075x5,B076x3]" },
+    { type: "issue", description: "Books issued to Abena Mensah [B075x2]" },
+    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
+    { type: "issue", description: "Books issued to Kwabena Yaw [B003x4]" }
+  ];
+  assert.deepEqual(vm.issuedBooks(activity, { name: "Abena Mensah" }), { B001: 1, B075: 7, B076: 3 });
+  assert.deepEqual(vm.issuedBooks(activity, { name: "Kwabena Yaw" }), { B003: 4 });
+  assert.deepEqual(vm.issuedBooks(activity, { name: "No One" }), {});
+  assert.deepEqual(vm.issuedBooks([], { name: "Abena Mensah" }), {});
+});
+
+test("viewModels.issuedBooks matches student name case-insensitively", () => {
+  const activity = [{ type: "issue", description: "Books issued to ABENA MENSAH [B001x2]" }];
+  assert.deepEqual(vm.issuedBooks(activity, { name: "abena mensah" }), { B001: 2 });
+});
+
 test("viewModels.pageForHash maps known hashes", () => {
   assert.equal(vm.pageForHash("#payments"), "payments");
   assert.equal(vm.pageForHash("#students"), "students");
