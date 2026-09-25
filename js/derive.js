@@ -82,14 +82,24 @@
     }));
   }
 
+  var CLASS_FEE_SIZE_COLUMNS = ["A1 Small", "D1 Small", "C Small", "G Small", "A1 Big", "D1 Big", "Exercise Book"];
+
   function normalizeClassFees(rows) {
     return (rows || [])
       .filter(r => r && !r.student_id && !r.name && (r.class || r.className) && (r.fee || r.books_fee))
-      .map(r => ({
-        className: String(r.class || r.className || "").trim(),
-        fee: num(r.fee || r.books_fee),
-        exbooks: num(r.exbooks)
-      }));
+      .map(r => {
+        const sizes = {};
+        CLASS_FEE_SIZE_COLUMNS.forEach(col => {
+          const v = num(r[col]);
+          if (v > 0) sizes[col] = v;
+        });
+        return {
+          className: String(r.class || r.className || "").trim(),
+          fee: num(r.fee || r.books_fee),
+          exbooks: num(r.exbooks),
+          sizes: sizes
+        };
+      });
   }
 
   function normalizeConfig(rows) {

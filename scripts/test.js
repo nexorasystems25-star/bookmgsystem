@@ -917,8 +917,8 @@ test("derive.normalizeClassFees reads class/fee/exbooks columns", () => {
     { class: "BS 2", fee: "430", exbooks: "15" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400, exbooks: 20 },
-    { className: "BS 2", fee: 430, exbooks: 15 }
+    { className: "KG 1", fee: 400, exbooks: 20, sizes: {} },
+    { className: "BS 2", fee: 430, exbooks: 15, sizes: {} }
   ]);
 });
 
@@ -927,7 +927,7 @@ test("derive.normalizeClassFees defaults exbooks to zero", () => {
     { class: "KG 1", fee: "400" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400, exbooks: 0 }
+    { className: "KG 1", fee: 400, exbooks: 0, sizes: {} }
   ]);
 });
 
@@ -937,7 +937,7 @@ test("derive.normalizeClassFees drops rows with empty fee", () => {
     { class: "KG 1", fee: "400", exbooks: "20" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400, exbooks: 20 }
+    { className: "KG 1", fee: 400, exbooks: 20, sizes: {} }
   ]);
 });
 
@@ -947,7 +947,27 @@ test("derive.normalizeClassFees rejects foreign rows (e.g. student sheet)", () =
     { class: "KG 1", fee: "400", exbooks: "20" }
   ];
   assert.deepEqual(derive.normalizeClassFees(rows), [
-    { className: "KG 1", fee: 400, exbooks: 20 }
+    { className: "KG 1", fee: 400, exbooks: 20, sizes: {} }
+  ]);
+});
+
+test("derive.normalizeClassFees reads per-size exercise counts into sizes", () => {
+  const rows = [
+    { class: "Nursery 1", fee: "300", exbooks: "10", "A1 Small": "5", "D1 Small": "5" },
+    { class: "BS 1", fee: "450", exbooks: "15", "Exercise Book": "15" }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5, "D1 Small": 5 } },
+    { className: "BS 1", fee: 450, exbooks: 15, sizes: { "Exercise Book": 15 } }
+  ]);
+});
+
+test("derive.normalizeClassFees ignores non-positive size cells", () => {
+  const rows = [
+    { class: "Nursery 1", fee: "300", exbooks: "10", "A1 Small": "0", "D1 Small": "-2", "C Small": "3" }
+  ];
+  assert.deepEqual(derive.normalizeClassFees(rows), [
+    { className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "C Small": 3 } }
   ]);
 });
 
