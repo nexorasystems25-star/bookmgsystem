@@ -277,7 +277,7 @@ async function runIssue(client, spreadsheetId, payload) {
   const studentName = students[foundStudent.rowIndex - 1][1];
 
   const requests = payload.books
-    ? payload.books.map(bookId => ({ book_id: bookId, qty: 1 }))
+    ? payload.books.map(b => (typeof b === "string" ? { book_id: b, qty: 1 } : b))
     : [{ book_id: payload.book_id, qty: payload.qty }];
 
   const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
@@ -293,7 +293,7 @@ async function runIssue(client, spreadsheetId, payload) {
 
   const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
   const activityId = nextId(activity, "A");
-  const issuedIds = resolved.map(x => x.bookRow[0]).join(",");
+  const issuedIds = resolved.map(x => (x.qty > 1 ? x.bookRow[0] + "x" + x.qty : x.bookRow[0])).join(",");
   for (const x of resolved) {
     await client.sheetsUpdate(spreadsheetId, "Books!" + colLetter(5) + x.foundBook.rowIndex, [[String(x.stockQty - x.qty)]]);
   }

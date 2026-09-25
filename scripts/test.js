@@ -555,6 +555,33 @@ test("runIssue rejects when stock would go negative", async () => {
   assert.equal(client.calls.length, 0, "no writes happened");
 });
 
+test("runIssue applies per-item quantities from a mixed books array", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B001","GoldenA","Math","Core","85","40","10"],
+      ["B075","Exercise Book","A1 Small","A1 Small","2.5","12","5"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", { book_id: "B075", qty: 5 }] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.rows, [{ book_id: "B001", stock_qty: 39 }, { book_id: "B075", stock_qty: 7 }]);
+  const activityRow = client.calls[client.calls.length - 1].rows[0];
+  assert.match(activityRow[2], /Books issued to Abena Mensah \[B001,B075x5\]/);
+});
+
+test("runIssue rejects per-item quantity when stock is insufficient (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
+      ["B075","Exercise Book","A1 Small","A1 Small","2.5","3","5"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: [{ book_id: "B075", qty: 5 }] });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /insufficient stock for A1 Small/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
 test("runStock adjusts stock and appends activity", async () => {
   const client = makeFakeClient({
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B004","Aki-Ola","Social Studies","Elective","70","60","10"]]
