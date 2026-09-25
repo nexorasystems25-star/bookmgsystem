@@ -396,21 +396,34 @@
       : emptyRow(5);
   }
 
+  function formatCollected(items) {
+    const groups = [];
+    const tx = items.filter(i => i.kind === "textbook").map(i => esc(i.book.subject) + " ×" + i.qty);
+    if (tx.length) groups.push("<b>Textbooks:</b> " + tx.join(", "));
+    const ex = items.filter(i => i.kind === "exbook")
+      .map(i => esc(i.book.category) + " ×" + i.qty + (i.stockShort ? ' <span class="pill warn">out of stock</span>' : ""));
+    if (ex.length) groups.push("<b>ExBooks:</b> " + ex.join(", "));
+    return groups.join(" · ");
+  }
+
   function renderIssuing(data) {
     const readiness = CEC.derive.buildReadiness(data.students);
     document.getElementById("issueReadyCount").textContent = readiness.ready;
     document.getElementById("issueWaitingCount").textContent = readiness.waiting;
     document.getElementById("issueUncoveredCount").textContent = readiness.uncovered;
 
-    const ready = data.students.filter(s => s.status === "ready");
-    document.getElementById("issueStudentsBody").innerHTML = ready.length
-      ? ready.map(s => `
+    const collectionRows = data.students
+      .map(s => Object.assign({ student: s }, CEC.viewModels.studentCollection(s, data.books, data.classFees, data.activity)))
+      .filter(r => r.collected.length > 0);
+    document.getElementById("collectionBody").innerHTML = collectionRows.length
+      ? collectionRows.map(r => `
         <tr>
-          <td><b>${esc(s.name)}</b><small>${esc(s.studentId)}</small></td>
-          <td>${esc(s.className)}</td>
-          <td><span class="pill success">Ready</span></td>
+          <td><b>${esc(r.student.name)}</b><small>${esc(r.student.studentId)}</small></td>
+          <td>${esc(r.mode)}</td>
+          <td>${formatCollected(r.collected)}</td>
+          <td>${r.remaining.length ? formatCollected(r.remaining) : '<span class="pill success">All collected</span>'}</td>
         </tr>`).join("")
-      : emptyRow(3, "No students ready to issue yet.");
+      : emptyRow(4, "No books collected yet.");
 
     const inv = CEC.viewModels.stockStatus(data.books);
     document.getElementById("issueBooksBody").innerHTML = inv.rows.length
