@@ -731,6 +731,42 @@ test("viewModels.issueEligibleBooks returns empty for missing class or zero paid
   assert.deepEqual(vm.issueEligibleBooks([], { className: "KG 1", booksPaid: 200 }, []), []);
 });
 
+test("viewModels.issuedBookIds strips quantity suffixes from tokens", () => {
+  const activity = [
+    { type: "issue", description: "Books issued to Abena Mensah [B001,B075x5,B076x3]" },
+    { type: "issue", description: "Books issued to Abena Mensah [B077x2]" },
+    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
+    { type: "issue", description: "Books issued to Kwabena Yaw [B003x4]" }
+  ];
+  assert.deepEqual(vm.issuedBookIds(activity, { name: "Abena Mensah" }), ["B001", "B075", "B076", "B077"]);
+  assert.deepEqual(vm.issuedBookIds(activity, { name: "Kwabena Yaw" }), ["B003"]);
+});
+
+test("viewModels.issueEligibleExBooks returns per-size issues with qty and stock", () => {
+  const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5, "D1 Small": 5 } }];
+  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10 };
+  const books = [
+    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 4, price: 2.5 },
+    { bookId: "B001", subject: "Math", category: "Nursery 1", publisher: "GES", stockQty: 20, price: 300 }
+  ];
+  const got = vm.issueEligibleExBooks(books, student, [], classFees);
+  assert.deepEqual(got.map(x => ({ id: x.book.bookId, qty: x.qty, stock: x.stock })), [{ id: "B075", qty: 5, stock: 12 }]);
+});
+
+test("viewModels.issueEligibleExBooks requires exbooks>0, class match, and hides issued books", () => {
+  const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
+  const books = [
+    { bookId: "B075", subject: "Writing Exercise Book", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
+    { bookId: "B076", subject: "Writing Exercise Book", category: "D1 Small", publisher: "Exercise Book", stockQty: 12 }
+  ];
+  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 0 }, [], classFees), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "BS 2", exbooks: 10 }, [], classFees), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 10 }, [], []), []);
+  const activity = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
+  assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10 }, activity, classFees), []);
+});
+
 test("viewModels.pageForHash maps known hashes", () => {
   assert.equal(vm.pageForHash("#payments"), "payments");
   assert.equal(vm.pageForHash("#students"), "students");
