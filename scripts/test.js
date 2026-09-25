@@ -272,11 +272,28 @@ test("validateIssuePayload accepts valid input and rejects bad", () => {
 });
 
 test("validateIssuePayload accepts a books array and rejects empty/bad ones", () => {
-  assert.deepEqual(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "B002"] }).payload, { student_id: "S001", books: ["B001", "B002"] });
-  assert.deepEqual(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "  ", "B001"] }).payload.books, ["B001"]);
+  assert.deepEqual(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "B002"] }).payload, { student_id: "S001", books: [{ book_id: "B001", qty: 1 }, { book_id: "B002", qty: 1 }] });
   assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [] }).ok, false);
   assert.equal(lib.validateIssuePayload({ student_id: "S001", books: "B001" }).ok, false);
   assert.equal(lib.validateIssuePayload({ books: ["B001"] }).ok, false);
+});
+
+test("validateIssuePayload accepts mixed books arrays with per-item quantities", () => {
+  assert.deepEqual(
+    lib.validateIssuePayload({ student_id: "S001", books: ["B001", { book_id: "B075", qty: 5 }] }).payload,
+    { student_id: "S001", books: [{ book_id: "B001", qty: 1 }, { book_id: "B075", qty: 5 }] }
+  );
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [{ book_id: "B075", qty: 0 }] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [{ book_id: "B075", qty: 1.5 }] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [{ book_id: "B075", qty: -3 }] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [{ qty: 5 }] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: ["  ", "B001"] }).payload.books[0].book_id, "B001");
+});
+
+test("validateIssuePayload rejects duplicate book ids in a books array", () => {
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: ["B001", "B001"] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: ["B001", { book_id: "B001", qty: 2 }] }).ok, false);
+  assert.equal(lib.validateIssuePayload({ student_id: "S001", books: [{ book_id: "B001", qty: 1 }, { book_id: "B001", qty: 2 }] }).ok, false);
 });
 
 test("validateStockPayload accepts valid input and rejects bad", () => {

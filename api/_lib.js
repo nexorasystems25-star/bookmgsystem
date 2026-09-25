@@ -81,10 +81,27 @@ function validateIssuePayload(raw) {
   const p = raw || {};
   if (!p.student_id || typeof p.student_id !== "string") return { ok: false, error: "student_id is required" };
   if (Array.isArray(p.books)) {
-    const books = p.books.map(String).map(s => s.trim()).filter(Boolean);
+    const books = [];
+    const seen = {};
+    for (const it of p.books) {
+      if (it != null && typeof it === "object") {
+        const bookId = String(it.book_id || "").trim();
+        const qty = it.qty;
+        if (!bookId) return { ok: false, error: "book_id is required in books" };
+        if (!Number.isInteger(qty) || qty < 1) return { ok: false, error: "qty must be a positive integer for " + bookId };
+        if (seen[bookId]) return { ok: false, error: "duplicate book_id: " + bookId };
+        seen[bookId] = true;
+        books.push({ book_id: bookId, qty: qty });
+      } else {
+        const bookId = String(it || "").trim();
+        if (!bookId) continue;
+        if (seen[bookId]) return { ok: false, error: "duplicate book_id: " + bookId };
+        seen[bookId] = true;
+        books.push({ book_id: bookId, qty: 1 });
+      }
+    }
     if (!books.length) return { ok: false, error: "books must contain at least one book_id" };
-    const uniq = books.filter((b, i) => books.indexOf(b) === i);
-    return { ok: true, payload: { student_id: p.student_id, books: uniq } };
+    return { ok: true, payload: { student_id: p.student_id, books: books } };
   }
   const qty = Number(p.qty);
   if (!p.book_id || typeof p.book_id !== "string") return { ok: false, error: "book_id is required" };
