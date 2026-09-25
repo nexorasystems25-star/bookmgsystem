@@ -811,6 +811,13 @@ test("viewModels.issueEligibleExBooks requires exbooks>0, class match, and hides
   assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10 }, activity, classFees), []);
 });
 
+test("viewModels.issueEligibleExBooks matches abbreviated Nursery class labels (N1)", () => {
+  const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
+  const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 }];
+  const got = vm.issueEligibleExBooks(books, { studentId: "S1", name: "Ama", className: "N1", exbooks: 10 }, [], classFees);
+  assert.deepEqual(got.map(x => x.book.bookId), ["B075"]);
+});
+
 test("viewModels.pageForHash maps known hashes", () => {
   assert.equal(vm.pageForHash("#payments"), "payments");
   assert.equal(vm.pageForHash("#students"), "students");

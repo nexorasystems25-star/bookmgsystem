@@ -121,7 +121,11 @@
   }
 
   function classKey(s) {
-    return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/^n(\d.*)$/, "nursery$1");
   }
 
   function issuedBookIds(activity, student) {
