@@ -137,16 +137,34 @@
       box.innerHTML = '<p class="empty-note">Select a student to see their available books.</p>';
       return;
     }
-    const eligible = root.viewModels.issueEligibleBooks(issueOpts.books, student, issueOpts.activity);
-    if (!eligible.length) {
+    const textbooks = root.viewModels.issueEligibleBooks(issueOpts.books, student, issueOpts.activity);
+    const exbooks = root.viewModels.issueEligibleExBooks(issueOpts.books, student, issueOpts.activity, issueOpts.classFees);
+    if (!textbooks.length && !exbooks.length) {
       box.innerHTML = '<p class="empty-note">No books available for ' + esc(student.name) + " right now.</p>";
       return;
     }
-    box.innerHTML = eligible.map(b =>
-      '<label class="book-option"><input type="checkbox" data-book-check value="' + esc(b.bookId) + '">' +
-      '<span class="book-name">' + esc(b.subject) + "<small>" + esc(b.publisher) + " · stock " + b.stockQty + "</small></span>" +
-      '<span class="price">GH₵' + Number(b.price) + "</span></label>"
-    ).join("");
+    const parts = [];
+    if (textbooks.length) {
+      parts.push('<h4 class="book-group-head">Textbooks</h4>');
+      textbooks.forEach(b => {
+        parts.push(
+          '<label class="book-option"><input type="checkbox" data-book-check value="' + esc(b.bookId) + '">' +
+          '<span class="book-name">' + esc(b.subject) + "<small>" + esc(b.publisher) + " · stock " + b.stockQty + "</small></span>" +
+          '<span class="price">GH₵' + Number(b.price) + "</span></label>"
+        );
+      });
+    }
+    if (exbooks.length) {
+      parts.push('<h4 class="book-group-head">ExBooks</h4>');
+      exbooks.forEach(x => {
+        parts.push(
+          '<label class="book-option"><input type="checkbox" data-exbook-check value="' + esc(x.book.bookId) + '" data-qty="' + x.qty + '">' +
+          '<span class="book-name">' + esc(x.book.subject) + " (" + esc(x.book.category) + ") · need " + x.qty + " · stock " + x.stock + "</small></span>" +
+          '<span class="price">×' + x.qty + "</span></label>"
+        );
+      });
+    }
+    box.innerHTML = parts.join("");
   }
 
   function renderStockBooks(className) {
@@ -278,8 +296,11 @@
     e.preventDefault();
     const dlg = e.currentTarget;
     const studentId = readValue(dlg, "[data-student]");
-    const books = Array.prototype.slice.call(dlg.querySelectorAll("[data-book-check]:checked"))
+    const textbookIds = Array.prototype.slice.call(dlg.querySelectorAll("[data-book-check]:checked"))
       .map(cb => cb.value);
+    const exbooks = Array.prototype.slice.call(dlg.querySelectorAll("[data-exbook-check]:checked"))
+      .map(cb => ({ book_id: cb.value, qty: Number(cb.dataset.qty) }));
+    const books = textbookIds.concat(exbooks);
     if (!studentId) return showError(dlg, "Select a student.");
     if (!books.length) return showError(dlg, "Tick at least one book to issue.");
     const submit = dlg.querySelector("[data-submit]");
