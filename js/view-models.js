@@ -200,6 +200,60 @@
     return out;
   }
 
+  function registrationMode(student) {
+    const hasTextbooks = Number((student && student.booksTotal) || 0) > 0;
+    const hasExbooks = Number((student && student.exbooks) || 0) > 0;
+    if (hasTextbooks && hasExbooks) return "Both";
+    if (hasTextbooks) return "Textbooks";
+    if (hasExbooks) return "ExBooks";
+    return "None";
+  }
+
+  function studentCollection(student, books, classFees, activity) {
+    const mode = registrationMode(student);
+    const paid = Number((student && student.booksPaid) || 0);
+    const target = classKey(student && student.className);
+    const issued = issuedBooks(activity, student);
+    const catalog = {};
+    (books || []).forEach(b => { catalog[b.bookId] = b; });
+
+    const collected = Object.keys(issued).map(id => {
+      const book = catalog[id];
+      if (!book) return null;
+      return { book: book, qty: issued[id], kind: isExerciseBook(book) ? "exbook" : "textbook" };
+    }).filter(Boolean);
+
+    const remaining = [];
+    if (mode === "Textbooks" || mode === "Both") {
+      (books || []).forEach(b => {
+        if (isExerciseBook(b)) return;
+        if (classKey(b.category) !== target) return;
+        if (!(Number(b.price) > 0) || Number(b.price) > paid) return;
+        if (!(Number(b.stockQty) > 0)) return;
+        if (issued[b.bookId]) return;
+        remaining.push({ book: b, qty: 1, kind: "textbook" });
+      });
+    }
+    if ((mode === "ExBooks" || mode === "Both") && target) {
+      const feesRow = (classFees || []).find(f => classKey(f.className) === target);
+      if (feesRow && feesRow.sizes) {
+        Object.keys(feesRow.sizes).forEach(sizeName => {
+          const sizeQty = Number(feesRow.sizes[sizeName] || 0);
+          if (!(sizeQty > 0)) return;
+          const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
+          if (!book) return;
+          const got = Number(issued[book.bookId] || 0);
+          const qty = sizeQty - got;
+          if (qty <= 0) return;
+          const stock = Number(book.stockQty) || 0;
+          remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: stock < qty });
+        });
+      }
+    }
+
+    return { mode: mode, collected: collected, remaining: remaining };
+  }
+
   function bookCountForClass(books, className) {
     const target = classKey(className);
     if (!target) return 0;
@@ -372,6 +426,7 @@
     issuedBooks,
     issueEligibleBooks,
     issueEligibleExBooks,
+    studentCollection,
     purchasePayload
   };
 });
