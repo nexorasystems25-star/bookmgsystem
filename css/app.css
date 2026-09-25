@@ -94,6 +94,7 @@ button{cursor:pointer}
 .book-list .price { margin-left: auto; white-space: nowrap; color: #1c2b44; }
 .book-list input[type="checkbox"] { width: auto; margin-top: 2px; }
 .book-list input.qty { width: 96px; margin-left: auto; padding: 6px 8px; text-align: right; }
+.book-list .book-group-head { margin: 10px 0 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #33475e; border-bottom: 0; }
 .empty-note { margin: 4px 0; color: #5a6b85; font-size: 13px; }
 .modal-foot {
   display: flex; justify-content: flex-end; gap: 10px;
