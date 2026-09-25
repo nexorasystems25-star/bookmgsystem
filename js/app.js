@@ -270,9 +270,18 @@
     const chartBars = document.getElementById("chartBars");
     const chartX = document.getElementById("chartX");
     const maxTotal = Math.max.apply(null, dash.chart.total.concat([1]));
-    chartBars.innerHTML = dash.chart.total
-      .map(v => `<i style="height:${Math.round((v / maxTotal) * 100)}%"></i>`)
-      .join("");
+    chartBars.innerHTML = dash.chart.labels.map((_, i) => {
+      const totalPct = Math.max(Math.round((dash.chart.total[i] / maxTotal) * 100), 3);
+      const parts = [
+        ["cash", dash.chart.cash[i]],
+        ["momo", dash.chart.momo[i]],
+        ["telecel", dash.chart.telecel[i]]
+      ].filter(p => p[1] > 0);
+      if (!parts.length) return '<i class="empty" style="height:3%"></i>';
+      const segs = parts.map(([cls, v], idx) =>
+        `<b class="${cls}${idx === parts.length - 1 ? " top" : ""}" style="height:${Math.max(Math.round((v / maxTotal) * 100), 3)}%"></b>`).join("");
+      return `<i style="height:${totalPct}%">${segs}</i>`;
+    }).join("");
     chartX.innerHTML = dash.chart.labels.map(l => `<span>${l}</span>`).join("");
 
     document.getElementById("donutPct").textContent = dash.readiness.coveredPct + "%";
