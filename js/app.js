@@ -66,8 +66,75 @@
     btn.addEventListener("click", () => { location.hash = btn.dataset.go; });
   });
 
-  document.querySelectorAll(".more-btn, .btn.btn-light:not([data-close]), .profile-mini").forEach(button => {
+  document.querySelectorAll(".more-btn, .btn.btn-light:not([data-close]):not([data-export]), .profile-mini").forEach(button => {
     button.addEventListener("click", () => showToast("This control is wired in the Controls stage (export, menus, profile)."));
+  });
+
+  const exportRows = {
+    dashboard: data => CEC.viewModels.exportCollectionOverview(data.payments),
+    payments: data => CEC.viewModels.exportPayments(data.payments),
+    students: data => CEC.viewModels.exportStudents(data.students),
+    issuing: data => CEC.viewModels.exportIssued(data.students, data.books, data.classFees, data.activity),
+    inventory: data => CEC.viewModels.exportStock(data.books),
+    reports: data => CEC.viewModels.exportReports(data.payments, data.students)
+  };
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function downloadExport(page, format) {
+    try {
+      const builder = exportRows[page];
+      if (!builder) { showToast("Unknown export."); return; }
+      const data = viewData();
+      const built = builder(data);
+      const all = [built.headers].concat(built.rows);
+      const ymd = new Date().toISOString().slice(0, 10);
+      const filename = "cec-" + page + "-" + ymd + "." + (format === "csv" ? "csv" : "xlsx");
+      if (format === "csv") {
+        downloadBlob(new Blob([CEC.xlsx.toCSV(all)], { type: "text/csv;charset=utf-8" }), filename);
+      } else {
+        downloadBlob(new Blob([CEC.xlsx.toXLSX(all)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
+      }
+      showToast("Exported " + page + " report.");
+    } catch (err) {
+      console.error("Export failed:", err);
+      showToast("Could not export the report.");
+    }
+  }
+
+  document.querySelectorAll("[data-export]").forEach(button => {
+    button.addEventListener("click", ev => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      if (openMenuEl) closeMenu();
+      if (!currentData) { showToast("Data not loaded yet."); return; }
+      openMenu(button, [
+        '<button class="menu-item" role="menuitem" data-format="csv">CSV (.csv)</button>',
+        '<button class="menu-item" role="menuitem" data-format="xlsx">Excel (.xlsx)</button>'
+      ].join(""));
+      openMenuEl.dataset.exportFor = button.dataset.export;
+    });
+  });
+
+  menuRoot.addEventListener("click", ev => {
+    const item = ev.target.closest("[data-format]");
+    if (!item) return;
+    const forPage = openMenuEl && openMenuEl.dataset.exportFor;
+    if (!forPage) return;
+    ev.stopPropagation();
+    const page = forPage;
+    const format = item.dataset.format;
+    closeMenu();
+    downloadExport(page, format);
   });
 
   function renderWorkspaceYears(anchor) {
