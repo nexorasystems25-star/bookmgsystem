@@ -862,6 +862,31 @@ test("api/check returns 401 for a missing or bad token", async () => {
   assert.equal(bad.statusCode, 401);
 });
 
+test("createClient.sheetsAddTab posts an addSheet batchUpdate request", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: true, status: 200, body: {} }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await client.sheetsAddTab("spr123", "Users");
+  const apiCall = calls[1];
+  assert.equal(apiCall.opts.method, "POST");
+  assert.match(apiCall.url, /spr123:batchUpdate$/);
+  assert.equal(apiCall.opts.headers.Authorization, "Bearer tok1");
+  assert.deepEqual(JSON.parse(apiCall.opts.body).requests[0], { addSheet: { properties: { title: "Users" } } });
+});
+
+test("createClient.sheetsAddTab surfaces API errors", async () => {
+  const calls = [];
+  const fake = makeFakeFetch([
+    { ok: true, status: 200, body: { access_token: "tok1", expires_in: 3600 } },
+    { ok: false, status: 403, body: { error: { message: "nope" } } }
+  ], calls);
+  const client = lib.createClient({ client_id: "cid", client_secret: "cs", refresh_token: "rt" }, fake);
+  await assert.rejects(client.sheetsAddTab("spr123", "Users"), /Sheets addTab failed: nope/);
+});
+
 test("runStock adjusts stock and appends activity", async () => {
   const client = makeFakeClient({
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B004","Aki-Ola","Social Studies","Elective","70","60","10"]]

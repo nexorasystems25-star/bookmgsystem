@@ -304,7 +304,22 @@ function createClient(env, fetchImpl) {
     return tabs;
   }
 
-  return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate, sheetsMeta };
+  async function sheetsAddTab(spreadsheetId, title) {
+    const token = await getAccessToken();
+    const res = await fetcher(
+      API_BASE + "/" + encodeURIComponent(spreadsheetId) + ":batchUpdate",
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: title } } }] })
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error("Sheets addTab failed: " + ((data && data.error && data.error.message) || res.status));
+    return data;
+  }
+
+  return { getAccessToken, sheetsGet, sheetsAppend, sheetsUpdate, sheetsMeta, sheetsAddTab };
 }
 
 function cellNum(v) {
