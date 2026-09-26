@@ -3,6 +3,8 @@
 const lib = require("./_lib");
 
 module.exports = async function handler(req, res) {
+  const auth = lib.requireAuth(req, res, ["admin"]);
+  if (!auth) return;
   try {
     const parsed = lib.validateStudentPayload(req.body);
     if (!parsed.ok) return res.status(400).json(parsed);

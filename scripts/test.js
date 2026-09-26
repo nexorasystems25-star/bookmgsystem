@@ -2,16 +2,38 @@ const assert = require("node:assert/strict");
 const csv = require("../js/csv.js");
 const xlsx = require("../js/xlsx.js");
 
+// Deterministic env for auth tests. Other tests pass explicit config objects to
+// createClient, so clearing these globals is safe for the whole file.
+process.env.AUTH_SESSION_SECRET = "test-secret";
+process.env.AUTH_USERS_SPREADSHEET_ID = "users-spr";
+for (const k of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"]) {
+  delete process.env[k];
+}
+
 let pass = 0;
+let pending = 0;
 function test(name, fn) {
+  pending++;
+  const report = (ok, err) => {
+    pending--;
+    if (ok) {
+      pass++;
+      console.log("PASS " + name);
+    } else {
+      console.error("FAIL " + name);
+      console.error("  " + (err && err.message));
+      process.exitCode = 1;
+    }
+  };
   try {
-    fn();
-    pass++;
-    console.log("PASS " + name);
+    const out = fn();
+    if (out && typeof out.then === "function") {
+      out.then(() => report(true), (err) => report(false, err));
+    } else {
+      report(true);
+    }
   } catch (err) {
-    console.error("FAIL " + name);
-    console.error("  " + err.message);
-    process.exitCode = 1;
+    report(false, err);
   }
 }
 
@@ -644,6 +666,105 @@ test("verifyToken rejects malformed tokens and wrong secret", () => {
   assert.equal(lib.verifyToken("not-a-token", "secret-1"), null);
   const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "secret-1");
   assert.equal(lib.verifyToken(token, "secret-2"), null);
+});
+
+function fakeRes() {
+  const res = { statusCode: 200, body: null };
+  res.status = function (code) { res.statusCode = code; return res; };
+  res.json = function (payload) { res.body = payload; return res; };
+  return res;
+}
+
+async function runHandler(mod, req) {
+  const res = fakeRes();
+  await mod(req, res);
+  return res;
+}
+
+test("requireAuth returns 401 when the Authorization header is missing", async () => {
+  const res = fakeRes();
+  const r = lib.requireAuth({ headers: {} }, res, ["admin"]);
+  assert.equal(r, null);
+  assert.equal(res.statusCode, 401);
+  assert.match(res.body.error, /required/i);
+});
+
+test("requireAuth returns 401 on a bad token", async () => {
+  const res = fakeRes();
+  const r = lib.requireAuth({ headers: { authorization: "Bearer nope" } }, res, ["admin"]);
+  assert.equal(r, null);
+  assert.equal(res.statusCode, 401);
+});
+
+test("requireAuth returns 403 when the role is not allowed", async () => {
+  const token = lib.signToken({ username: "yaw", role: "teacher" }, 3600, "test-secret");
+  const res = fakeRes();
+  const r = lib.requireAuth({ headers: { authorization: "Bearer " + token } }, res, ["admin"]);
+  assert.equal(r, null);
+  assert.equal(res.statusCode, 403);
+});
+
+test("requireAuth returns the payload for an allowed role", async () => {
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+  const res = fakeRes();
+  const r = lib.requireAuth({ headers: { authorization: "Bearer " + token } }, res, ["admin", "storekeeper"]);
+  assert.deepEqual({ username: r.username, role: r.role }, { username: "ama", role: "admin" });
+  assert.equal(res.statusCode, 200);
+});
+
+test("api/payment returns 401 without a token (auth runs before createClient)", async () => {
+  const payment = require("../api/payment.js");
+  const res = await runHandler(payment, { body: { student_id: "S001", amount: 10, method: "Cash" } });
+  assert.equal(res.statusCode, 401);
+  assert.match(res.body.error, /required/i);
+});
+
+test("api/payment accepts admin and storekeeper, rejects teacher", async () => {
+  const payment = require("../api/payment.js");
+  const adminTok = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+  const skTok = lib.signToken({ username: "kofi", role: "storekeeper" }, 3600, "test-secret");
+  const teacherTok = lib.signToken({ username: "yaw", role: "teacher" }, 3600, "test-secret");
+  const req = tok => ({ headers: { authorization: "Bearer " + tok }, body: { student_id: "S001", amount: 10, method: "Cash" } });
+
+  const adminRes = await runHandler(payment, req(adminTok));
+  assert.equal(adminRes.statusCode, 500, "admin passed gating and reached createClient (no GOOGLE env)");
+
+  const skRes = await runHandler(payment, req(skTok));
+  assert.equal(skRes.statusCode, 500, "storekeeper passed gating and reached createClient");
+
+  const teacherRes = await runHandler(payment, req(teacherTok));
+  assert.equal(teacherRes.statusCode, 403, "teacher is not allowed on /api/payment");
+  assert.match(teacherRes.body.error, /permission/i);
+});
+
+test("api/issue accepts admin and storekeeper, rejects teacher (403)", async () => {
+  const issue = require("../api/issue.js");
+  const skTok = lib.signToken({ username: "kofi", role: "storekeeper" }, 3600, "test-secret");
+  const teacherTok = lib.signToken({ username: "yaw", role: "teacher" }, 3600, "test-secret");
+  const req = tok => ({ headers: { authorization: "Bearer " + tok }, body: { student_id: "S001", book_id: "B003", qty: 1 } });
+  const skRes = await runHandler(issue, req(skTok));
+  assert.equal(skRes.statusCode, 500, "storekeeper passed gating and reached createClient");
+  const teacherRes = await runHandler(issue, req(teacherTok));
+  assert.equal(teacherRes.statusCode, 403);
+});
+
+test("api/student and api/stock are admin-only (storekeeper gets 403)", async () => {
+  const student = require("../api/student.js");
+  const stock = require("../api/stock.js");
+  const skTok = lib.signToken({ username: "kofi", role: "storekeeper" }, 3600, "test-secret");
+  const adminTok = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+
+  const skStudent = await runHandler(student, { headers: { authorization: "Bearer " + skTok }, body: { name: "X", class: "BS 1A", gender: "male", books_fee: 1, books_total: 1 } });
+  assert.equal(skStudent.statusCode, 403);
+
+  const skStock = await runHandler(stock, { headers: { authorization: "Bearer " + skTok }, body: { book_id: "B001", stock_delta: 1 } });
+  assert.equal(skStock.statusCode, 403);
+
+  const adminStock = await runHandler(stock, { headers: { authorization: "Bearer " + adminTok }, body: { book_id: "B001", stock_delta: 1 } });
+  assert.equal(adminStock.statusCode, 500, "admin passed gating and reached createClient");
+
+  const noTok = await runHandler(student, { headers: {}, body: {} });
+  assert.equal(noTok.statusCode, 401);
 });
 
 test("runStock adjusts stock and appends activity", async () => {
@@ -1589,4 +1710,7 @@ test("viewModels.exportReports emits method, class and outstanding sections", ()
   assert.ok(got.rows.some(r => r[0] && r[0].indexOf("Kwame") !== -1 && r[1] === 700));
 });
 
-console.log(pass + " tests passed");
+setImmediate(function waitForPending() {
+  if (pending > 0) { setImmediate(waitForPending); return; }
+  console.log(pass + " tests passed");
+});

@@ -110,6 +110,21 @@ function verifyToken(token, secret) {
   }
 }
 
+function requireAuth(req, res, allowedRoles) {
+  const header = (req && req.headers && req.headers.authorization) || "";
+  const match = /^Bearer\s+(.+)$/.exec(header);
+  const payload = match ? verifyToken(match[1], process.env.AUTH_SESSION_SECRET) : null;
+  if (!payload) {
+    res.status(401).json({ ok: false, error: "Authentication required." });
+    return null;
+  }
+  if ((allowedRoles || []).indexOf(payload.role) === -1) {
+    res.status(403).json({ ok: false, error: "You do not have permission for this action." });
+    return null;
+  }
+  return payload;
+}
+
 // values: array of arrays (values[0] header). Returns { rowIndex, colLetter }
 // where rowIndex is 1-based spreadsheet row number. Null when not found.
 function findRowIndex(values, idColumn, id) {
@@ -429,6 +444,7 @@ module.exports = {
   verifyPassword,
   signToken,
   verifyToken,
+  requireAuth,
   findRowIndex,
   cellNum,
   validatePaymentPayload,

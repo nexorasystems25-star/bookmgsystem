@@ -3,6 +3,8 @@
 const lib = require("./_lib");
 
 module.exports = async function handler(req, res) {
+  const auth = lib.requireAuth(req, res, ["admin", "storekeeper"]);
+  if (!auth) return;
   try {
     const parsed = lib.validateIssuePayload(req.body);
     if (!parsed.ok) return res.status(400).json(parsed);
