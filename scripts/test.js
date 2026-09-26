@@ -1718,8 +1718,11 @@ test("viewModels.exportReports emits method, class and outstanding sections", ()
   assert.ok(got.rows.some(r => r[0] && r[0].indexOf("Kwame") !== -1 && r[1] === 700));
 });
 
-Promise.allSettled(inflight).then(() => console.log(pass + " tests passed"));
-setTimeout(() => {
+const watchdog = setTimeout(() => {
   console.error("suite timed out with " + inflight.length + " tests not settled");
   process.exit(1);
-}, 60000).unref();
+}, 60000);
+Promise.allSettled(inflight).then(() => {
+  clearTimeout(watchdog);
+  console.log(pass + " tests passed");
+});
