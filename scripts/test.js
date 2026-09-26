@@ -683,9 +683,9 @@ function fakeRes() {
   return res;
 }
 
-async function runHandler(mod, req) {
+async function runHandler(mod, req, deps) {
   const res = fakeRes();
-  await mod(req, res);
+  await mod(req, res, deps);
   return res;
 }
 
@@ -773,6 +773,68 @@ test("api/student and api/stock are admin-only (storekeeper gets 403)", async ()
 
   const noTok = await runHandler(student, { headers: {}, body: {} });
   assert.equal(noTok.statusCode, 401);
+});
+
+test("api/login returns a token for valid credentials", async () => {
+  const login = require("../api/login.js");
+  const validCred = await lib.hashPassword("pw123");
+  const fakeUsers = [
+    ["username", "credentials", "role", "created_at", "updated_at"],
+    ["ama", validCred, "admin", "2026-09-26", "2026-09-26"]
+  ];
+  const fakeClient = { sheetsGet: async () => fakeUsers };
+  const res = await runHandler(login, { body: { username: "ama", password: "pw123" } }, { createClient: () => fakeClient });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.username, "ama");
+  assert.equal(res.body.role, "admin");
+  assert.ok(typeof res.body.token === "string" && res.body.token.indexOf(".") !== -1);
+});
+
+test("api/login rejects a wrong password with a generic 401", async () => {
+  const login = require("../api/login.js");
+  const validCred = await lib.hashPassword("pw123");
+  const fakeUsers = [
+    ["username", "credentials", "role", "created_at", "updated_at"],
+    ["ama", validCred, "admin", "2026-09-26", "2026-09-26"]
+  ];
+  const fakeClient = { sheetsGet: async () => fakeUsers };
+  const res = await runHandler(login, { body: { username: "ama", password: "wrong" } }, { createClient: () => fakeClient });
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body.error, "Invalid username or password.");
+});
+
+test("api/login rejects an unknown user with the identical generic 401", async () => {
+  const login = require("../api/login.js");
+  const fakeUsers = [["username", "credentials", "role", "created_at", "updated_at"]];
+  const fakeClient = { sheetsGet: async () => fakeUsers };
+  const res = await runHandler(login, { body: { username: "ghost", password: "pw123" } }, { createClient: () => fakeClient });
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body.error, "Invalid username or password.");
+});
+
+test("api/login requires username and password fields", async () => {
+  const login = require("../api/login.js");
+  const res = await runHandler(login, { body: {} }, { createClient: () => ({}) });
+  assert.equal(res.statusCode, 400);
+});
+
+test("api/check returns 200 with role for a valid token", async () => {
+  const check = require("../api/check.js");
+  const token = lib.signToken({ username: "kofi", role: "storekeeper" }, 3600, "test-secret");
+  const res = await runHandler(check, { headers: { authorization: "Bearer " + token } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.username, "kofi");
+  assert.equal(res.body.role, "storekeeper");
+});
+
+test("api/check returns 401 for a missing or bad token", async () => {
+  const check = require("../api/check.js");
+  const none = await runHandler(check, { headers: {} });
+  assert.equal(none.statusCode, 401);
+  const bad = await runHandler(check, { headers: { authorization: "Bearer bad" } });
+  assert.equal(bad.statusCode, 401);
 });
 
 test("runStock adjusts stock and appends activity", async () => {
