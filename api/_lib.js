@@ -5,6 +5,15 @@ const API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const METHODS = ["Cash", "MTN MoMo", "Telecel"];
 const GENDERS = ["male", "female"];
 
+const crypto = require("node:crypto");
+const { promisify } = require("node:util");
+
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
+const scryptAsync = promisify(crypto.scrypt);
+
 function todayISO() {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -42,6 +51,63 @@ function colLetter(n) {
     n = Math.floor((n - 1) / 26);
   }
   return s;
+}
+
+function scryptParams(credentials) {
+  const parts = String(credentials || "").split(":");
+  if (parts.length !== 5) throw new Error("Malformed credentials string");
+  const N = parseInt(parts[0], 10);
+  const r = parseInt(parts[1], 10);
+  const p = parseInt(parts[2], 10);
+  const saltHex = parts[3];
+  const hashHex = parts[4];
+  if (!(N > 0) || !(r > 0) || !(p > 0) || !/^[0-9a-f]+$/i.test(saltHex) || !/^[0-9a-f]+$/i.test(hashHex)) {
+    throw new Error("Malformed credentials string");
+  }
+  return { N: N, r: r, p: p, salt: Buffer.from(saltHex, "hex"), hash: Buffer.from(hashHex, "hex") };
+}
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const key = crypto.scryptSync(String(password), salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+  return String(SCRYPT_N) + ":" + SCRYPT_R + ":" + SCRYPT_P + ":" + salt.toString("hex") + ":" + key.toString("hex");
+}
+
+async function verifyPassword(password, credentials, compare) {
+  const params = scryptParams(credentials);
+  const derived = await scryptAsync(String(password), params.salt, params.hash.length, { N: params.N, r: params.r, p: params.p });
+  if (derived.length !== params.hash.length) return false;
+  const eq = compare || function (a, b) {
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+  return eq(derived, params.hash);
+}
+
+function signToken(user, ttlSeconds, secret) {
+  const payload = { sub: user.username, role: user.role, exp: Math.floor(Date.now() / 1000) + ttlSeconds };
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", String(secret)).update(data).digest("base64url");
+  return data + "." + sig;
+}
+
+function verifyToken(token, secret) {
+  if (typeof token !== "string" || !token || !secret) return null;
+  const dot = token.indexOf(".");
+  if (dot <= 0) return null;
+  const data = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  try {
+    const expected = crypto.createHmac("sha256", String(secret)).update(data).digest("base64url");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(sig);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
+    if (!payload || typeof payload !== "object" || typeof payload.sub !== "string" || typeof payload.role !== "string") return null;
+    if (typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return { username: payload.sub, role: payload.role, exp: payload.exp };
+  } catch (e) {
+    return null;
+  }
 }
 
 // values: array of arrays (values[0] header). Returns { rowIndex, colLetter }
@@ -358,6 +424,11 @@ module.exports = {
   nextId,
   recomputeStatus,
   colLetter,
+  scryptParams,
+  hashPassword,
+  verifyPassword,
+  signToken,
+  verifyToken,
   findRowIndex,
   cellNum,
   validatePaymentPayload,

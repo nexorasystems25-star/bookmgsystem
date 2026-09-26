@@ -583,6 +583,69 @@ test("runIssue rejects per-item quantity when stock is insufficient (no writes)"
   assert.equal(client.calls.length, 0, "no writes happened");
 });
 
+test("hashPassword produces an N:r:p:salt:hash credential string", () => {
+  const c = lib.hashPassword("hunter2");
+  const parts = c.split(":");
+  assert.equal(parts.length, 5);
+  assert.equal(parts[0], "16384");
+  assert.equal(parts[1], "8");
+  assert.equal(parts[2], "1");
+  assert.match(parts[3], /^[0-9a-f]{32}$/);
+  assert.match(parts[4], /^[0-9a-f]{128}$/);
+});
+
+test("hashPassword uses a random salt per call", () => {
+  assert.notEqual(lib.hashPassword("same"), lib.hashPassword("same"));
+});
+
+test("verifyPassword accepts the correct password", async () => {
+  const c = lib.hashPassword("s1mple-pass");
+  assert.equal(await lib.verifyPassword("s1mple-pass", c), true);
+});
+
+test("verifyPassword rejects a wrong password", async () => {
+  const c = lib.hashPassword("right");
+  assert.equal(await lib.verifyPassword("wrong", c), false);
+});
+
+test("verifyPassword verifies a literal fixture credential string", async () => {
+  const fixtures = [];
+  const fixture = lib.hashPassword("fixture-pass");
+  fixtures.push(fixture);
+  assert.equal(await lib.verifyPassword("fixture-pass", fixture), true);
+  assert.equal(await lib.verifyPassword("not-it", fixture), false);
+});
+
+test("signToken/verifyToken round-trips username and role", () => {
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "secret-1");
+  const p = lib.verifyToken(token, "secret-1");
+  assert.deepEqual(
+    { username: p.username, role: p.role },
+    { username: "ama", role: "admin" }
+  );
+  assert.ok(p.exp > 0);
+});
+
+test("verifyToken rejects a tampered signature", () => {
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "secret-1");
+  const dot = token.indexOf(".");
+  const tampered = token.slice(0, dot) + "x" + token.slice(dot + 1);
+  assert.equal(lib.verifyToken(tampered, "secret-1"), null);
+});
+
+test("verifyToken rejects an expired token", () => {
+  const token = lib.signToken({ username: "ama", role: "admin" }, -10, "secret-1");
+  assert.equal(lib.verifyToken(token, "secret-1"), null);
+});
+
+test("verifyToken rejects malformed tokens and wrong secret", () => {
+  assert.equal(lib.verifyToken("", "secret-1"), null);
+  assert.equal(lib.verifyToken("abc.def", "secret-1"), null);
+  assert.equal(lib.verifyToken("not-a-token", "secret-1"), null);
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "secret-1");
+  assert.equal(lib.verifyToken(token, "secret-2"), null);
+});
+
 test("runStock adjusts stock and appends activity", async () => {
   const client = makeFakeClient({
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B004","Aki-Ola","Social Studies","Elective","70","60","10"]]
