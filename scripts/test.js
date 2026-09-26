@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const csv = require("../js/csv.js");
+const xlsx = require("../js/xlsx.js");
 
 let pass = 0;
 function test(name, fn) {
@@ -1408,6 +1409,43 @@ test("viewModels.purchasePayload treats an unknown mode like both", () => {
 test("viewModels.purchasePayload defaults missing values to zero", () => {
   const p = vm.purchasePayload("both", {});
   assert.deepEqual(p, { fee: 0, total: 0, exbooks: 0 });
+});
+
+test("xlsx.toCSV writes header and rows with trailing newline", () => {
+  assert.equal(xlsx.toCSV([["Day", "Total"], ["Mon", 100]]), 'Day,Total\nMon,100\n');
+  assert.equal(xlsx.toCSV([["A"]]), 'A\n');
+});
+
+test("xlsx.toCSV quotes fields with commas quotes and newlines", () => {
+  const out = xlsx.toCSV([
+    ["name", "note"],
+    ["Owusu, Emma", 'say "hi"'],
+    ["multi", "line1\nline2"]
+  ]);
+  assert.equal(out, 'name,note\n"Owusu, Emma","say ""hi"""\nmulti,"line1\nline2"\n');
+});
+
+test("xlsx.toCSV empty or null input returns empty string", () => {
+  assert.equal(xlsx.toCSV([]), "");
+  assert.equal(xlsx.toCSV(null), "");
+  assert.equal(xlsx.toCSV(undefined), "");
+});
+
+test("xlsx.toXLSX produces a stored ZIP with required OOXML parts", () => {
+  const out = xlsx.toXLSX([["Day", "Total"], ["Mon", 100]]);
+  const buf = Buffer.from(out);
+  assert.ok(buf.slice(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])), "zip local header magic PK\\x03\\x04");
+  assert.ok(buf.includes(Buffer.from("[Content_Types].xml", "ascii")), "[Content_Types].xml part present");
+  assert.ok(buf.includes(Buffer.from("xl/workbook.xml", "ascii")), "workbook part present");
+  assert.ok(buf.includes(Buffer.from("xl/worksheets/sheet1.xml", "ascii")), "sheet part present");
+});
+
+test("xlsx.toXLSX embeds values as inline strings and numbers", () => {
+  const out = xlsx.toXLSX([["Day", "Total"], ["Mon", 100]]);
+  const text = Buffer.from(out).toString("utf8");
+  assert.ok(text.indexOf("<v>100</v>") !== -1, "numeric cell <v>100</v>");
+  assert.ok(text.indexOf("<is><t>Day</t></is>") !== -1, "inline string cell");
+  assert.ok(text.indexOf('t="inlineStr"') !== -1, "inlineStr type used for strings");
 });
 
 console.log(pass + " tests passed");
