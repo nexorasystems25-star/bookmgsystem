@@ -562,8 +562,13 @@ test("runIssue decrements stock and appends activity", async () => {
   assert.equal(client.calls[0].op, "update");
   assert.equal(client.calls[0].range, "Books!F2");
   assert.deepEqual(client.calls[0].values, [["10"]]);
-  assert.equal(client.calls[1].tab, "Activity");
   assert.match(client.calls[1].rows[0][2], /Books issued to Abena Mensah/);
+  assert.equal(client.calls[2].tab, "Issued");
+  assert.equal(client.calls[2].rows[0][0], "I001");
+  assert.equal(client.calls[2].rows[0][1], "S001");
+  assert.equal(client.calls[2].rows[0][2], "B003");
+  assert.equal(client.calls[2].rows[0][3], "2");
+  assert.match(client.calls[2].rows[0][4], /^\d{4}-\d{2}-\d{2}$/);
 });
 
 test("runIssue rejects when stock would go negative", async () => {
@@ -587,8 +592,28 @@ test("runIssue applies per-item quantities from a mixed books array", async () =
   const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", { book_id: "B075", qty: 5 }] });
   assert.equal(r.ok, true);
   assert.deepEqual(r.rows, [{ book_id: "B001", stock_qty: 39 }, { book_id: "B075", stock_qty: 7 }]);
-  const activityRow = client.calls[client.calls.length - 1].rows[0];
-  assert.match(activityRow[2], /Books issued to Abena Mensah \[B001,B075x5\]/);
+  const activityCall = client.calls.find(c => c.tab === "Activity");
+  assert.match(activityCall.rows[0][2], /Books issued to Abena Mensah \[B001,B075x5\]/);
+  const issuedCalls = client.calls.filter(c => c.tab === "Issued");
+  assert.deepEqual(issuedCalls.map(c => c.rows[0].slice(0, 4)), [
+    ["I001", "S001", "B001", "1"],
+    ["I002", "S001", "B075", "5"]
+  ]);
+});
+
+test("runIssue rolls and appends one Issued row per resolved book", async () => {
+  const client = makeFakeClient({
+    "Students!A:B": [["student_id", "name"], ["S001", "Abena Mensah"]],
+    "Books!A:I": [["book_id", "publisher", "subject", "category", "price", "stock_qty", "low_stock_threshold"],
+      ["B001", "GoldenA", "Math", "Core", "85", "40", "10"],
+      ["B075", "Exercise Book", "A1 Small", "A1 Small", "2.5", "12", "5"]],
+    "Activity!A:A": [["activity_id"], ["A006"]],
+    "Issued!A:A": [["issue_id"], ["I009"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001"] });
+  assert.equal(r.ok, true);
+  const issuedCall = client.calls.find(c => c.tab === "Issued");
+  assert.equal(issuedCall.rows[0][0], "I010");
 });
 
 test("runIssue rejects per-item quantity when stock is insufficient (no writes)", async () => {

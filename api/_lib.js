@@ -385,6 +385,17 @@ async function runIssue(client, spreadsheetId, payload) {
   await client.sheetsAppend(spreadsheetId, "Activity", [[
     activityId, "issue", "Books issued to " + studentName + " [" + issuedIds + "]", "0", todayISO()
   ]]);
+  const issuedTab = await client.sheetsGet(spreadsheetId, "Issued!A:A");
+  let issuedNum = Number(nextId(issuedTab, "I").slice(1));
+  for (const x of resolved) {
+    await client.sheetsAppend(spreadsheetId, "Issued", [[
+      "I" + String(issuedNum++).padStart(3, "0"),
+      payload.student_id,
+      x.bookRow[0],
+      String(x.qty),
+      todayISO()
+    ]]);
+  }
   if (payload.books) {
     return { ok: true, rows: resolved.map(x => ({ book_id: x.bookRow[0], stock_qty: x.stockQty - x.qty })) };
   }
