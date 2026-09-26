@@ -101,7 +101,7 @@
               <p class="muted">Here is what is happening with books and payments today.</p>
             </div>
             <div class="head-actions">
-              <button class="btn btn-light" type="button">Export report</button>
+              <button class="btn btn-light" type="button" data-export="dashboard">Export report</button>
               <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
             </div>
           </div>
@@ -201,6 +201,7 @@
               <p class="muted">Registered students for the active academic year.</p>
             </div>
             <div class="head-actions">
+              <button class="btn btn-light" type="button" data-export="students">Export report</button>
               <button class="btn btn-primary" type="button" data-action="student">+ Register student</button>
               <button class="btn btn-light" type="button" data-action="student-txt">+ Textbooks</button>
               <button class="btn btn-light" type="button" data-action="student-ex">+ ExBooks</button>
@@ -231,7 +232,7 @@
               <p class="muted">All payments recorded this academic year.</p>
             </div>
             <div class="head-actions">
-              <button class="btn btn-light" type="button">Export report</button>
+              <button class="btn btn-light" type="button" data-export="payments">Export report</button>
               <button class="btn btn-primary" type="button" data-action="payment">+ Record payment</button>
             </div>
           </div>
@@ -278,6 +279,7 @@
               <p class="muted">Stock levels per title.</p>
             </div>
             <div class="head-actions">
+              <button class="btn btn-light" type="button" data-export="inventory">Export report</button>
               <button class="btn btn-primary" type="button" data-action="stock">+Stock Textbook</button>
               <button class="btn btn-primary" type="button" data-action="stock-ex">+Stock ExBooks</button>
             </div>
@@ -304,6 +306,7 @@
               <p class="muted">Students ready to receive their book package.</p>
             </div>
             <div class="head-actions">
+              <button class="btn btn-light" type="button" data-export="issuing">Export report</button>
               <button class="btn btn-primary" type="button" data-action="issue">Issue books</button>
             </div>
           </div>
@@ -351,7 +354,7 @@
               <p class="muted">Summaries derived from live payments and balances.</p>
             </div>
             <div class="head-actions">
-              <button class="btn btn-light" type="button">Export report</button>
+              <button class="btn btn-light" type="button" data-export="reports">Export report</button>
             </div>
           </div>
           <div class="metric-grid">
@@ -506,6 +509,7 @@
   <script src="js/csv.js"></script>
   <script src="js/derive.js"></script>
   <script src="js/view-models.js"></script>
+  <script src="js/xlsx.js"></script>
   <script src="js/data-access.js"></script>
   <script src="js/app.js"></script>
   <script src="js/write.js"></script>
