@@ -1448,4 +1448,82 @@ test("xlsx.toXLSX embeds values as inline strings and numbers", () => {
   assert.ok(text.indexOf('t="inlineStr"') !== -1, "inlineStr type used for strings");
 });
 
+test("viewModels.exportCollectionOverview reports 7 day rows with method buckets", () => {
+  const today = todayISO();
+  const got = vm.exportCollectionOverview([
+    { date: today, amount: 100, method: "Cash" },
+    { date: today, amount: 200, method: "MTN MoMo" },
+    { date: today, amount: 50, method: "Telecel" }
+  ]);
+  assert.deepEqual(got.headers, ["Day", "Cash", "Mobile Money", "Telecel", "Total"]);
+  assert.equal(got.rows.length, 7);
+  assert.deepEqual(got.rows[6].slice(1), [100, 200, 50, 350]);
+  assert.equal(got.rows[6][0], new Date().toLocaleDateString("en-US", { weekday: "short" }));
+});
+
+test("viewModels.exportCollectionOverview empty payments yields zero buckets", () => {
+  const got = vm.exportCollectionOverview([]);
+  assert.equal(got.rows.length, 7);
+  assert.deepEqual(got.rows[3].slice(1), [0, 0, 0, 0]);
+});
+
+test("viewModels.exportPayments sorts newest first and canonicalizes method", () => {
+  const got = vm.exportPayments([
+    { paymentId: "P1", studentName: "Ama", className: "JS 1", amount: 1000, method: "cash", date: "2026-09-20", status: "Recorded" },
+    { paymentId: "P2", studentName: "Kojo", className: "BS 2", amount: 2000, method: "MTN MoMo", date: "2026-09-21", status: "Recorded" }
+  ]);
+  assert.deepEqual(got.headers, ["Ref", "Student", "Class", "Amount", "Method", "Date", "Status"]);
+  assert.equal(got.rows[0][0], "P2");
+  assert.equal(got.rows[0][4], "MTN MoMo");
+  assert.equal(got.rows[1][0], "P1");
+  assert.equal(got.rows[1][4], "Cash");
+  assert.equal(got.rows[1][6], "Recorded");
+});
+
+test("viewModels.exportStudents lists paid and outstanding amounts", () => {
+  const got = vm.exportStudents(FIXTURE_STUDENTS);
+  assert.deepEqual(got.headers, ["ID", "Name", "Class", "Gender", "Fee", "Paid", "Outstanding", "Status"]);
+  assert.equal(got.rows.length, 3);
+  assert.equal(got.rows[1][6], 700);   // Kwame: 1200 - 500
+  assert.equal(got.rows[2][6], 1400);  // Efua: 1400 - 0
+  assert.equal(got.rows[0][4], 1200);  // Fee from booksTotal when booksFee absent
+});
+
+test("viewModels.exportIssued expands collected books with qty and kind", () => {
+  const students = [{ studentId: "S1", name: "Ama", className: "JS 1", booksTotal: 1200, booksPaid: 1200, exbooks: 0 }];
+  const books = [
+    { bookId: "B1", subject: "Maths", category: "JS 1", publisher: "A", price: 100, stockQty: 5, lowStockThreshold: 1 },
+    { bookId: "B2", subject: "English", category: "JS 1", publisher: "B", price: 100, stockQty: 5, lowStockThreshold: 1 }
+  ];
+  const activity = [{ type: "issue", description: "Books issued to Ama [B1,B2x2]" }];
+  const got = vm.exportIssued(students, books, [], activity);
+  assert.deepEqual(got.headers, ["Student ID", "Name", "Class", "Mode", "Book ID", "Title", "Category", "Qty", "Kind"]);
+  assert.equal(got.rows.length, 2);
+  assert.deepEqual(got.rows[0].slice(0, 4), ["S1", "Ama", "JS 1", "Textbooks"]);
+  assert.deepEqual(got.rows[0].slice(4), ["B1", "Maths", "JS 1", 1, "textbook"]);
+  assert.deepEqual(got.rows[1].slice(4), ["B2", "English", "JS 1", 2, "textbook"]);
+});
+
+test("viewModels.exportIssued empty activity yields no rows", () => {
+  const got = vm.exportIssued(FIXTURE_STUDENTS, FIXTURE_BOOKS, [], []);
+  assert.equal(got.rows.length, 0);
+});
+
+test("viewModels.exportStock exports stock rows with price and status", () => {
+  const got = vm.exportStock(FIXTURE_BOOKS);
+  assert.deepEqual(got.headers, ["Book ID", "Title", "Publisher", "Category", "Price", "In Stock", "Threshold", "Status"]);
+  assert.equal(got.rows.length, 3);
+  assert.deepEqual(got.rows[0], ["B1", "English", "A", "KG 1", 0, 20, 5, "OK"]);
+  assert.deepEqual(got.rows[2], ["B3", "Science", "C", "Class 1", 0, 0, 3, "Out"]);
+});
+
+test("viewModels.exportReports emits method, class and outstanding sections", () => {
+  const got = vm.exportReports(FIXTURE_PAYMENTS, FIXTURE_STUDENTS);
+  assert.equal(got.headers[0], "Report");
+  assert.ok(got.rows.some(r => r[0] === "Cash" && r[1] === 1500));
+  assert.ok(got.rows.some(r => r[0] === "MTN MoMo" && r[1] === 2000));
+  assert.ok(got.rows.some(r => r[0] === "JS 1" && r[1] === 3500));
+  assert.ok(got.rows.some(r => r[0] && r[0].indexOf("Kwame") !== -1 && r[1] === 700));
+});
+
 console.log(pass + " tests passed");

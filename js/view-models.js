@@ -41,6 +41,31 @@
     return raw;
   }
 
+  function chart7Days(payments) {
+    const dates = [];
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(d.getFullYear() + "-" + m + "-" + day);
+      labels.push(d.toLocaleDateString("en-US", { weekday: "short" }));
+    }
+    const cash = dates.map(() => 0);
+    const momo = dates.map(() => 0);
+    const telecel = dates.map(() => 0);
+    (payments || []).forEach(p => {
+      const idx = dates.indexOf(p.date);
+      if (idx < 0) return;
+      const cls = classifyMethod(p.method);
+      if (cls === "momo") momo[idx] += p.amount;
+      else if (cls === "telecel") telecel[idx] += p.amount;
+      else cash[idx] += p.amount;
+    });
+    return { labels, cash, momo, telecel, total: cash.map((c, i) => c + momo[i] + telecel[i]) };
+  }
+
   function methodSummary(payments) {
     const bucket = { cash: 0, momo: 0, telecel: 0 };
     let grand = 0;
@@ -104,6 +129,90 @@
       }))
       .filter(r => r.balance > 0)
       .sort((a, b) => b.balance - a.balance);
+  }
+
+  function exportCollectionOverview(payments) {
+    const c = chart7Days(payments);
+    const headers = ["Day", "Cash", "Mobile Money", "Telecel", "Total"];
+    const rows = c.labels.map((label, i) => [label, c.cash[i], c.momo[i], c.telecel[i], c.total[i]]);
+    return { headers, rows };
+  }
+
+  function exportPayments(payments) {
+    const headers = ["Ref", "Student", "Class", "Amount", "Method", "Date", "Status"];
+    const rows = (payments || [])
+      .slice()
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.paymentId || "").localeCompare(String(a.paymentId || "")))
+      .map(p => [p.paymentId, p.studentName, p.className, p.amount, methodLabel(p.method), p.date, p.status || "Recorded"]);
+    return { headers, rows };
+  }
+
+  function exportStudents(students) {
+    const headers = ["ID", "Name", "Class", "Gender", "Fee", "Paid", "Outstanding", "Status"];
+    const rows = (students || []).map(s => [
+      s.studentId,
+      s.name,
+      s.className,
+      s.gender || "",
+      s.booksFee || s.booksTotal || 0,
+      s.booksPaid || 0,
+      studentOutstanding(s),
+      s.status || ""
+    ]);
+    return { headers, rows };
+  }
+
+  function exportIssued(students, books, classFees, activity) {
+    const headers = ["Student ID", "Name", "Class", "Mode", "Book ID", "Title", "Category", "Qty", "Kind"];
+    const rows = [];
+    (students || []).forEach(s => {
+      const coll = studentCollection(s, books, classFees, activity);
+      (coll.collected || []).forEach(item => {
+        rows.push([
+          s.studentId,
+          s.name,
+          s.className,
+          coll.mode,
+          item.book.bookId,
+          item.book.subject,
+          item.book.category,
+          item.qty,
+          item.kind
+        ]);
+      });
+    });
+    return { headers, rows };
+  }
+
+  function exportStock(books) {
+    const inv = stockStatus(books);
+    const byId = {};
+    (books || []).forEach(b => { byId[b.bookId] = b; });
+    const headers = ["Book ID", "Title", "Publisher", "Category", "Price", "In Stock", "Threshold", "Status"];
+    const rows = inv.rows.map(r => [
+      r.bookId,
+      r.subject,
+      r.publisher,
+      r.category,
+      (byId[r.bookId] || {}).price || 0,
+      r.stockQty,
+      r.lowStockThreshold,
+      r.status
+    ]);
+    return { headers, rows };
+  }
+
+  function exportReports(payments, students) {
+    const headers = ["Report", "Value"];
+    const rows = [["Method", "Amount"]];
+    methodSummary(payments).forEach(m => rows.push([m.label, m.total]));
+    rows.push([]);
+    rows.push(["Class", "Amount"]);
+    classTotals(payments).forEach(c => rows.push([c.className, c.total]));
+    rows.push([]);
+    rows.push(["Student", "Balance"]);
+    outstandingList(students).forEach(o => rows.push([o.studentId + " - " + o.name, o.balance]));
+    return { headers, rows };
   }
 
   function isExerciseBook(book) {
@@ -438,6 +547,12 @@
     issueEligibleBooks,
     issueEligibleExBooks,
     studentCollection,
-    purchasePayload
+    purchasePayload,
+    exportCollectionOverview,
+    exportPayments,
+    exportStudents,
+    exportIssued,
+    exportStock,
+    exportReports
   };
 });
