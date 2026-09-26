@@ -61,7 +61,10 @@ function scryptParams(credentials) {
   const p = parseInt(parts[2], 10);
   const saltHex = parts[3];
   const hashHex = parts[4];
-  if (!(N > 0) || !(r > 0) || !(p > 0) || !/^[0-9a-f]+$/i.test(saltHex) || !/^[0-9a-f]+$/i.test(hashHex)) {
+  if (!/^\d+$/.test(parts[0]) || !/^\d+$/.test(parts[1]) || !/^\d+$/.test(parts[2])
+      || !(N > 0) || !(r > 0) || !(p > 0)
+      || !/^[0-9a-f]+$/i.test(saltHex) || (saltHex.length % 2 !== 0)
+      || !/^[0-9a-f]+$/i.test(hashHex) || (hashHex.length % 2 !== 0)) {
     throw new Error("Malformed credentials string");
   }
   return { N: N, r: r, p: p, salt: Buffer.from(saltHex, "hex"), hash: Buffer.from(hashHex, "hex") };
@@ -84,6 +87,7 @@ async function verifyPassword(password, credentials, compare) {
 }
 
 function signToken(user, ttlSeconds, secret) {
+  if (!secret) throw new Error("AUTH_SESSION_SECRET is not set");
   const payload = { sub: user.username, role: user.role, exp: Math.floor(Date.now() / 1000) + ttlSeconds };
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = crypto.createHmac("sha256", String(secret)).update(data).digest("base64url");

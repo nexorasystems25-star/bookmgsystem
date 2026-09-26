@@ -11,11 +11,9 @@ for (const k of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOK
 }
 
 let pass = 0;
-let pending = 0;
+const inflight = [];
 function test(name, fn) {
-  pending++;
   const report = (ok, err) => {
-    pending--;
     if (ok) {
       pass++;
       console.log("PASS " + name);
@@ -28,7 +26,7 @@ function test(name, fn) {
   try {
     const out = fn();
     if (out && typeof out.then === "function") {
-      out.then(() => report(true), (err) => report(false, err));
+      inflight.push(out.then(() => report(true), (err) => report(false, err)));
     } else {
       report(true);
     }
@@ -666,6 +664,16 @@ test("verifyToken rejects malformed tokens and wrong secret", () => {
   assert.equal(lib.verifyToken("not-a-token", "secret-1"), null);
   const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "secret-1");
   assert.equal(lib.verifyToken(token, "secret-2"), null);
+});
+
+test("signToken throws when the session secret is missing", () => {
+  assert.throws(() => lib.signToken({ username: "ama", role: "admin" }, 3600, undefined), /AUTH_SESSION_SECRET/);
+});
+
+test("scryptParams rejects odd-length hex and non-numeric cost fields", () => {
+  assert.throws(() => lib.scryptParams("16384:8:1:aab:ccddee"), /Malformed credentials/);         // odd-length salt
+  assert.throws(() => lib.scryptParams("16384:8:1:aabbccdd:ccddeef"), /Malformed credentials/);  // odd-length hash
+  assert.throws(() => lib.scryptParams("16384abc:8:1:aabbccdd:ccddee"), /Malformed credentials/); // non-numeric N
 });
 
 function fakeRes() {
@@ -1710,7 +1718,8 @@ test("viewModels.exportReports emits method, class and outstanding sections", ()
   assert.ok(got.rows.some(r => r[0] && r[0].indexOf("Kwame") !== -1 && r[1] === 700));
 });
 
-setImmediate(function waitForPending() {
-  if (pending > 0) { setImmediate(waitForPending); return; }
-  console.log(pass + " tests passed");
-});
+Promise.allSettled(inflight).then(() => console.log(pass + " tests passed"));
+setTimeout(() => {
+  console.error("suite timed out with " + inflight.length + " tests not settled");
+  process.exit(1);
+}, 60000).unref();
