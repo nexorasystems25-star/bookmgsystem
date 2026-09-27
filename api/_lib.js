@@ -4,6 +4,7 @@ const OAUTH_URL = "https://oauth2.googleapis.com/token";
 const API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const METHODS = ["Cash", "MTN MoMo", "Telecel"];
 const GENDERS = ["male", "female"];
+const CONFIG_HEADER = ["academic_year", "daily_payment_target", "currency", "last_synced"];
 
 const crypto = require("node:crypto");
 const { promisify } = require("node:util");
@@ -216,6 +217,18 @@ function validateStockPayload(raw) {
   if (!p.book_id || typeof p.book_id !== "string") return { ok: false, error: "book_id is required" };
   if (!Number.isInteger(delta) || delta === 0) return { ok: false, error: "stock_delta must be a non-zero integer" };
   return { ok: true, payload: { book_id: p.book_id, stockDelta: delta } };
+}
+
+function validateConfigPayload(raw) {
+  const p = raw || {};
+  const year = typeof p.academic_year === "string" ? p.academic_year.trim() : "";
+  const target = Number(p.daily_payment_target);
+  if (!/^\d{4}\s*\/\s*\d{2,4}$/.test(year)) return { ok: false, error: "academic_year must look like 2026/2027" };
+  if (!(target >= 0)) return { ok: false, error: "daily_payment_target must be a non-negative number" };
+  if (typeof p.currency !== "string" || !p.currency.trim() || p.currency.length > 10) {
+    return { ok: false, error: "currency is required and must be 10 characters or fewer" };
+  }
+  return { ok: true, payload: { academicYear: year, dailyPaymentTarget: target, currency: p.currency } };
 }
 
 function createClient(env, fetchImpl) {
@@ -462,6 +475,24 @@ async function runStock(client, spreadsheetId, payload) {
   return { ok: true, row: { book_id: payload.book_id, stock_qty: newQty } };
 }
 
+async function runConfig(client, spreadsheetId, payload) {
+  const config = await client.sheetsGet(spreadsheetId, "Config!A:D");
+  const header = (config[0] || []).slice(0, 4);
+  if (header.join(",") !== CONFIG_HEADER.join(",")) {
+    return { ok: false, error: "Config tab missing or header mismatch." };
+  }
+  const current = (config[1] || []).slice(0, 4);
+  while (current.length < 4) current.push("");
+  const row = [
+    payload.academicYear == null ? current[0] : String(payload.academicYear),
+    payload.dailyPaymentTarget == null ? current[1] : String(payload.dailyPaymentTarget),
+    payload.currency == null ? current[2] : String(payload.currency),
+    current[3]
+  ];
+  await client.sheetsUpdate(spreadsheetId, "Config!A2:D2", [row]);
+  return { ok: true };
+}
+
 module.exports = {
   OAUTH_URL,
   API_BASE,
@@ -481,9 +512,11 @@ module.exports = {
   validateStudentPayload,
   validateIssuePayload,
   validateStockPayload,
+  validateConfigPayload,
   createClient,
   runPayment,
   runStudent,
   runIssue,
-  runStock
+  runStock,
+  runConfig
 };

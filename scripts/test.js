@@ -341,6 +341,25 @@ test("validateStockPayload rejects bad batch entries", () => {
   assert.deepEqual(lib.validateStockPayload({ stock_adjustments: "B001" }), { ok: false, error: "book_id is required" });
 });
 
+test("validateConfigPayload accepts valid input", () => {
+  const r = lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: 60, currency: "GH₵" });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.payload, { academicYear: "2025/2026", dailyPaymentTarget: 60, currency: "GH₵" });
+});
+
+test("validateConfigPayload rejects bad input", () => {
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025", daily_payment_target: 60, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/6", daily_payment_target: 60, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026/27", daily_payment_target: 60, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "", daily_payment_target: 60, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ daily_payment_target: 60, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: -1, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: "abc", currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: NaN, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: 60, currency: "" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: 60, currency: "GHS-1234567" }).ok, false);
+});
+
 test("client contract: write.js sends snake_case payloads (camelCase rejected)", () => {
   assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "5", method: "Cash" }).ok, true);
   assert.equal(lib.validatePaymentPayload({ studentId: "S001", amount: "5", method: "Cash" }).ok, false);
@@ -1024,6 +1043,30 @@ test("runStock rejects when the stock cell is non-numeric (no writes)", async ()
   });
   await assert.rejects(() => lib.runStock(client, "spr", { book_id: "B009", stockDelta: 1 }), /non-numeric/);
   assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runConfig merges provided fields over the current row", async () => {
+  const client = makeFakeClient({
+    "Config!A:D": [["academic_year","daily_payment_target","currency","last_synced"],["2026/2027","60","GH₵","2026-09-20"]]
+  });
+  const r = await lib.runConfig(client, "spr", { academicYear: "2025/2026" });
+  assert.equal(r.ok, true);
+  assert.equal(client.calls.length, 1);
+  assert.equal(client.calls[0].op, "update");
+  assert.equal(client.calls[0].range, "Config!A2:D2");
+  assert.deepEqual(client.calls[0].values, [["2025/2026","60","GH₵","2026-09-20"]]);
+});
+
+test("runConfig refuses to write when the Config header mismatches or the tab is empty", async () => {
+  const expected = { ok: false, error: "Config tab missing or header mismatch." };
+  const mismatched = makeFakeClient({
+    "Config!A:D": [["year","target","currency","last_synced"],["2026/2027","60","GH₵","2026-09-20"]]
+  });
+  assert.deepEqual(await lib.runConfig(mismatched, "spr", { academicYear: "2025/2026" }), expected);
+  assert.equal(mismatched.calls.length, 0, "no writes happened");
+  const empty = makeFakeClient({});
+  assert.deepEqual(await lib.runConfig(empty, "spr", { academicYear: "2025/2026" }), expected);
+  assert.equal(empty.calls.length, 0, "no writes happened");
 });
 
 const vm = require("../js/view-models.js");
