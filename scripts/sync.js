@@ -89,6 +89,9 @@ async function main() {
       if (sheet === "Issued" && !isIssued(objects)) {
         throw new Error("payload does not look like an Issued ledger (missing issue_id)");
       }
+      if (sheet === "Config" && !isConfig(objects)) {
+        throw new Error("payload does not look like a Config row (no currency / daily_payment_target column)");
+      }
       writeJsonSafe(dir, file, objects);
       console.log("Synced " + sheet + " -> data/" + file + " (" + objects.length + " rows)");
     } catch (err) {
@@ -121,6 +124,26 @@ function isIssuedRow(row) {
   if (!row) return false;
   const cell = key => String(row[key] === undefined ? "" : row[key]).trim();
   return cell("issue_id") !== "" && cell("student_id") !== "";
+}
+
+// Same gviz hazard as "Issued": a fetch of a missing "Config" tab resolves to
+// the FIRST sheet, and unlike Issued the Students roster does carry an
+// academic_year column, so column PRESENCE is the discriminator, not that one
+// value. rowsToObjects emits a key for every header cell, so only a real Config
+// tab (academic_year, daily_payment_target, currency, last_synced) has both
+// daily_payment_target and currency. Anything else keeps the committed snapshot.
+function isConfig(objects) {
+  return Array.isArray(objects) && objects.length > 0 && isConfigRow(objects[0]);
+}
+
+function isConfigRow(row) {
+  if (!row) return false;
+  const has = key => Object.prototype.hasOwnProperty.call(row, key);
+  return (
+    has("daily_payment_target") &&
+    has("currency") &&
+    String(row.academic_year === undefined ? "" : row.academic_year).trim() !== ""
+  );
 }
 
 async function loadTabGids() {
