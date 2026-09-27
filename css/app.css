@@ -103,6 +103,9 @@ button{cursor:pointer}
 
 /* Stage 04 — multi-view navigation */
 section.page[hidden] { display: none; }
+/* .nav-item sets display:flex at author origin, which outranks the UA
+   [hidden]{display:none} rule, so hidden nav items need this override. */
+.nav-item[hidden] { display: none; }
 .search-wrap { margin-bottom: 14px; }
 .search-input {
   width: 100%; box-sizing: border-box; padding: 10px 12px;

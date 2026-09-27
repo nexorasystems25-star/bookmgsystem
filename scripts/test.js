@@ -1574,6 +1574,14 @@ test("viewModels.filterYear keeps books/config/offline/lastSynced passthrough", 
   assert.equal(out.config.dailyTarget, 100000);
 });
 
+test("viewModels.filterYear keeps the issued passthrough", () => {
+  const data = makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS);
+  data.issued = [{ studentId: "26-1", bookId: "B1", qty: 1 }];
+  const out = vm.filterYear(data, "2025/2026");
+  assert.equal(out.issued.length, 1);
+  assert.equal(out.issued[0].bookId, "B1");
+});
+
 test("viewModels.filterYear attaches academicYear to each filtered payment", () => {
   const out = vm.filterYear(makeDataset(YEAR_STUDENTS, YEAR_PAYMENTS), "2026/2027");
   const p = out.payments.find(x => x.paymentId === "P1");

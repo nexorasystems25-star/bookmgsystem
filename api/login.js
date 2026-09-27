@@ -25,7 +25,10 @@ async function handler(req, res, deps) {
       return res.status(401).json({ ok: false, error: "Invalid username or password." });
     }
     const row = users[found.rowIndex - 1];
-    const ok = await lib.verifyPassword(password, row[1]);
+    // A blank/corrupt credential cell throws inside scrypt. Swallow it so a known
+    // username with bad stored credentials is indistinguishable from an unknown one.
+    let ok = false;
+    try { ok = await lib.verifyPassword(password, row[1]); } catch (e) { ok = false; }
     if (!ok) {
       return res.status(401).json({ ok: false, error: "Invalid username or password." });
     }
