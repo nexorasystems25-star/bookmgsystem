@@ -86,6 +86,9 @@ async function main() {
       if (sheet === "ClassFees" && !isClassFees(objects)) {
         throw new Error("ClassFees tab missing or unreadable");
       }
+      if (sheet === "Issued" && !isIssued(objects)) {
+        throw new Error("payload does not look like an Issued ledger (missing issue_id)");
+      }
       writeJsonSafe(dir, file, objects);
       console.log("Synced " + sheet + " -> data/" + file + " (" + objects.length + " rows)");
     } catch (err) {
@@ -104,6 +107,20 @@ function isClassFees(objects) {
     (o.fee !== undefined || o.books_fee !== undefined) &&
     !o.student_id && !o.name
   );
+}
+
+// A gviz fetch of a tab that does not exist resolves to the FIRST sheet, so a
+// missing "Issued" tab arrives as the Students roster. Accept a payload only
+// when its first row carries the ledger's own keys; otherwise the caller
+// skips the tab and keeps the committed snapshot.
+function isIssued(objects) {
+  return Array.isArray(objects) && objects.length > 0 && isIssuedRow(objects[0]);
+}
+
+function isIssuedRow(row) {
+  if (!row) return false;
+  const cell = key => String(row[key] === undefined ? "" : row[key]).trim();
+  return cell("issue_id") !== "" && cell("student_id") !== "";
 }
 
 async function loadTabGids() {
