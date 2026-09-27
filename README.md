@@ -68,7 +68,7 @@ Browser side: the *Record payment* / *Register student* / *Issue books* / *Adjus
 
 Test locally: `npm test` (unit + API layer) and `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` (browser write-flow E2E, throwaway harness).
 
-> **Security note (auth):** all write endpoints (`/api/payment`, `/api/student`, `/api/issue`, `/api/stock`) and the new `/api/login` + `/api/check` require a valid HMAC-signed session token (`Authorization: Bearer <token>`). Credentials live in a `Users` tab of a **separate, private** spreadsheet (`AUTH_USERS_SPREADSHEET_ID`) and are seeded with `node scripts/create-user.js --init --username <name> --password <pw> --role {admin|teacher|storekeeper}`. Add `AUTH_SESSION_SECRET` (any long random string) and `AUTH_USERS_SPREADSHEET_ID` to Vercel project settings. Design: `docs/superpowers/specs/2026-09-26-login-roles-design.md`.
+> **Security note (auth):** all write endpoints (`/api/payment`, `/api/student`, `/api/issue`, `/api/stock`, `/api/config`) and the new `/api/login` + `/api/check` require a valid HMAC-signed session token (`Authorization: Bearer <token>`). Credentials live in a `Users` tab of a **separate, private** spreadsheet (`AUTH_USERS_SPREADSHEET_ID`) and are seeded with `node scripts/create-user.js --init --username <name> --password <pw> --role {admin|teacher|storekeeper}`. Add `AUTH_SESSION_SECRET` (any long random string) and `AUTH_USERS_SPREADSHEET_ID` to Vercel project settings. Design: `docs/superpowers/specs/2026-09-26-login-roles-design.md`.
 
 ## Stage 04 — Multi-view navigation
 
@@ -85,7 +85,7 @@ Routes:
 | `/#inventory` | Stock table with OK / Low / Out pills + summary cards |
 | `/#issuing` | Issue-ready students + per-book stock availability |
 | `/#reports` | Collections by method, by class, outstanding balances, stock summary |
-| `/#settings` | Config surface (year, daily target, currency) + offline / freshness status |
+| `/#settings` | Config surface (default academic year, daily target, currency) + offline / freshness status |
 
 Architecture:
 
