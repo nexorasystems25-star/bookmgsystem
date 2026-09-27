@@ -128,7 +128,8 @@
   });
 
   document.querySelectorAll("[data-edit-config]").forEach(btn => {
-    btn.addEventListener("click", async () => { await openDialog("config"); });
+    // app.js loads first and stubs a toast on this same click; retract it before the dialog opens.
+    btn.addEventListener("click", () => { hideToast(); openDialog("config"); });
   });
 
   document.querySelectorAll("[data-close]").forEach(btn => {
@@ -429,5 +430,12 @@
     toast.classList.add("show");
     clearTimeout(window.__toastTimer);
     window.__toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
+  }
+
+  function hideToast() {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+    clearTimeout(window.__toastTimer);
+    toast.classList.remove("show");
   }
 })();

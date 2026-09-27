@@ -224,7 +224,11 @@ function validateConfigPayload(raw) {
   const year = typeof p.academic_year === "string" ? p.academic_year.trim() : "";
   const target = Number(p.daily_payment_target);
   if (!/^\d{4}\s*\/\s*\d{2,4}$/.test(year)) return { ok: false, error: "academic_year must look like 2026/2027" };
-  if (!(target >= 0)) return { ok: false, error: "daily_payment_target must be a non-negative number" };
+  // Number(null) and Number("") are both 0, so presence is checked before the numeric range.
+  if (p.daily_payment_target == null || p.daily_payment_target === "" ||
+      !Number.isFinite(target) || target < 0) {
+    return { ok: false, error: "daily_payment_target must be a non-negative number" };
+  }
   if (typeof p.currency !== "string" || !p.currency.trim() || p.currency.length > 10) {
     return { ok: false, error: "currency is required and must be 10 characters or fewer" };
   }
@@ -476,7 +480,13 @@ async function runStock(client, spreadsheetId, payload) {
 }
 
 async function runConfig(client, spreadsheetId, payload) {
-  const config = await client.sheetsGet(spreadsheetId, "Config!A:D");
+  let config;
+  try {
+    config = await client.sheetsGet(spreadsheetId, "Config!A:D");
+  } catch (e) {
+    // A truly absent tab rejects the read; treat it as the same condition as a bad header.
+    return { ok: false, error: "Config tab missing or header mismatch." };
+  }
   const header = (config[0] || []).slice(0, 4);
   if (header.join(",") !== CONFIG_HEADER.join(",")) {
     return { ok: false, error: "Config tab missing or header mismatch." };

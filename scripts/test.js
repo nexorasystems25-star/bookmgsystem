@@ -362,6 +362,13 @@ test("validateConfigPayload rejects bad input", () => {
   assert.equal(lib.validateConfigPayload({ academic_year: "2025/2026", daily_payment_target: 60, currency: "GHS-1234567" }).ok, false);
 });
 
+test("validateConfigPayload rejects a null or empty daily_payment_target instead of coercing it to 0", () => {
+  // Number(null) and Number("") are both 0, so a bare target check would wave these through and write 0.
+  assert.equal(lib.validateConfigPayload({ academic_year: "2026/2027", daily_payment_target: null, currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ academic_year: "2026/2027", daily_payment_target: "", currency: "GH₵" }).ok, false);
+  assert.equal(lib.validateConfigPayload({ daily_payment_target: "" }).ok, false);
+});
+
 test("client contract: write.js sends snake_case payloads (camelCase rejected)", () => {
   assert.equal(lib.validatePaymentPayload({ student_id: "S001", amount: "5", method: "Cash" }).ok, true);
   assert.equal(lib.validatePaymentPayload({ studentId: "S001", amount: "5", method: "Cash" }).ok, false);
@@ -1085,6 +1092,10 @@ function stubEl(name) {
   return el;
 }
 
+// openDialog() populates asynchronously and returns nothing, so a click handler that just
+// calls it resolves before showModal runs. Drain the microtask queue before asserting.
+const flushAsync = () => new Promise(resolve => setImmediate(resolve));
+
 const CFG_STUDENTS = [{ academicYear: "2026/2027" }, { academicYear: "2025/2026" }];
 const CFG_DATA = {
   students: CFG_STUDENTS,
@@ -1220,7 +1231,8 @@ test("the Settings Edit buttons open dlgConfig pre-filled from the config row an
   assert.ok(doc.ids.dlgConfig, "#dlgConfig is the registered dialog element");
   const form = doc.ids.dlgConfig;
 
-  await editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  await flushAsync();
   for (const sel of ["[data-year]", "[data-target]", "[data-currency]", "[data-source]", "[data-error]"]) {
     assert.ok(form.queries.indexOf(sel) !== -1, "dlgConfig binds " + sel);
   }
@@ -1231,7 +1243,8 @@ test("the Settings Edit buttons open dlgConfig pre-filled from the config row an
   assert.equal(form.children["[data-currency]"].value, "GH\u20b5");
   assert.equal(form.children["[data-source]"].value, "live", "a live browser prefills the live source");
   cec.forceOffline = true;
-  await editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  await flushAsync();
   assert.equal(form.children["[data-source]"].value, "offline", "an offline browser prefills the offline source");
   assert.equal(form.children["[data-error]"].hidden, true, "a stale inline error is cleared on open");
 });
@@ -1489,6 +1502,15 @@ test("runConfig refuses to write when the Config header mismatches or the tab is
   const empty = makeFakeClient({});
   assert.deepEqual(await lib.runConfig(empty, "spr", { academicYear: "2025/2026" }), expected);
   assert.equal(empty.calls.length, 0, "no writes happened");
+});
+
+test("runConfig turns a missing Config tab into a header-mismatch failure without writing", async () => {
+  const client = makeFakeClient({});
+  client.sheetsGet = async () => { throw new Error("Unable to parse range: Config!A:D"); };
+  const r = await lib.runConfig(client, "spr", { academicYear: "2025/2026" });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /\bConfig tab missing or header mismatch\./);
+  assert.equal(client.calls.length, 0, "no writes happened");
 });
 
 const vm = require("../js/view-models.js");
