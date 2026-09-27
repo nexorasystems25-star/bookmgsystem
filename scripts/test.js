@@ -881,6 +881,90 @@ test("api/check returns 401 for a missing or bad token", async () => {
   assert.equal(bad.statusCode, 401);
 });
 
+const CFG_BODY = { academic_year: "2026/2027", daily_payment_target: 60, currency: "GH\u20b5" };
+const CFG_CURRENT_ROW = [["academic_year", "daily_payment_target", "currency", "last_synced"], ["2000/2001", "10", "USD", "2026-09-20"]];
+
+test("api/config returns 401 without a valid token and never builds a client", async () => {
+  const config = require("../api/config.js");
+  let built = 0;
+  const deps = { createClient: () => { built++; return {}; } };
+  const none = await runHandler(config, { headers: {}, body: CFG_BODY }, deps);
+  assert.equal(none.statusCode, 401);
+  assert.match(none.body.error, /required/i);
+  const bad = await runHandler(config, { headers: { authorization: "Bearer bad" }, body: CFG_BODY }, deps);
+  assert.equal(bad.statusCode, 401);
+  assert.equal(built, 0, "no Google client is built before authentication succeeds");
+});
+
+test("api/config is admin-only: teacher and storekeeper get 403", async () => {
+  const config = require("../api/config.js");
+  let built = 0;
+  const deps = { createClient: () => { built++; return {}; } };
+  for (const role of ["teacher", "storekeeper"]) {
+    const token = lib.signToken({ username: role, role: role }, 3600, "test-secret");
+    const res = await runHandler(config, { headers: { authorization: "Bearer " + token }, body: CFG_BODY }, deps);
+    assert.equal(res.statusCode, 403, role + " is not allowed on /api/config");
+    assert.match(res.body.error, /permission/i);
+  }
+  assert.equal(built, 0, "no Google client is built for a forbidden role");
+});
+
+test("api/config returns 400 for an invalid payload before touching Google", async () => {
+  const config = require("../api/config.js");
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+  let built = 0;
+  const res = await runHandler(config, { headers: { authorization: "Bearer " + token }, body: { academic_year: "2026", daily_payment_target: 60, currency: "GH\u20b5" } }, { createClient: () => { built++; return {}; } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.error, /academic_year/);
+  assert.equal(built, 0, "validation runs before the Google client is built");
+});
+
+test("api/config writes the validated payload with the Google env (auth before createClient)", async () => {
+  const config = require("../api/config.js");
+  const envKeys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "SPREADSHEET_ID"];
+  const saved = {};
+  for (const k of envKeys) { saved[k] = process.env[k]; process.env[k] = "env-" + k; }
+  const order = [];
+  const inner = makeFakeClient({ "Config!A:D": CFG_CURRENT_ROW });
+  const seenIds = [];
+  const client = {
+    sheetsGet: (id, range) => { seenIds.push([id, range]); return inner.sheetsGet(id, range); },
+    sheetsUpdate: (id, range, values) => { seenIds.push([id, range]); return inner.sheetsUpdate(id, range, values); }
+  };
+  let createArgs = null;
+  try {
+    const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+    const res = await runHandler(config, { headers: { authorization: "Bearer " + token }, body: CFG_BODY }, {
+      requireAuth: (req, r, roles) => { order.push("requireAuth:" + roles.join(",")); return lib.requireAuth(req, r, roles); },
+      createClient: (env) => { order.push("createClient"); createArgs = env; return client; }
+    });
+    assert.deepEqual(order, ["requireAuth:admin", "createClient"], "requireAuth runs before createClient");
+    assert.deepEqual(createArgs, {
+      client_id: "env-GOOGLE_CLIENT_ID",
+      client_secret: "env-GOOGLE_CLIENT_SECRET",
+      refresh_token: "env-GOOGLE_REFRESH_TOKEN"
+    });
+    assert.deepEqual(seenIds, [["env-SPREADSHEET_ID", "Config!A:D"], ["env-SPREADSHEET_ID", "Config!A2:D2"]], "SPREADSHEET_ID reaches runConfig");
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.ok, true);
+    // Every editable column comes from parsed.payload (camelCase) and last_synced is preserved.
+    assert.deepEqual(inner.calls[0].values, [["2026/2027", "60", "GH\u20b5", "2026-09-20"]]);
+  } finally {
+    for (const k of envKeys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+  }
+});
+
+test("api/config surfaces the runConfig header guard as a 400 without writing", async () => {
+  const config = require("../api/config.js");
+  const token = lib.signToken({ username: "ama", role: "admin" }, 3600, "test-secret");
+  const client = makeFakeClient({ "Config!A:D": [["year", "target", "currency", "last_synced"], ["2026/2027", "60", "GH\u20b5", "2026-09-20"]] });
+  const res = await runHandler(config, { headers: { authorization: "Bearer " + token }, body: CFG_BODY }, { createClient: () => client });
+  assert.equal(res.statusCode, 400, "a header-guard refusal is a 400, not a 500");
+  assert.deepEqual(res.body, { ok: false, error: "Config tab missing or header mismatch." });
+  assert.equal(client.calls.length, 0, "no write was attempted");
+});
+
 test("createClient.sheetsAddTab posts an addSheet batchUpdate request", async () => {
   const calls = [];
   const fake = makeFakeFetch([
