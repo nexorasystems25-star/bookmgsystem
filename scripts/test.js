@@ -1860,6 +1860,48 @@ test("derive.issuedSummary tolerates empty and unknown rows", () => {
   assert.deepEqual(s2, { byStudent: {}, byBook: {} });
 });
 
+const session = require("../js/session.js");
+
+test("session.parsePayload decodes username, role and exp from a token", () => {
+  const token = lib.signToken({ username: "yaw", role: "teacher" }, 3600, "test-secret");
+  const p = session.parsePayload(token);
+  assert.equal(p.username, "yaw");
+  assert.equal(p.role, "teacher");
+  assert.ok(p.exp > 0);
+});
+
+test("session.parsePayload returns null for garbage", () => {
+  assert.equal(session.parsePayload(""), null);
+  assert.equal(session.parsePayload("abc.def"), null);
+  assert.equal(session.parsePayload(null), null);
+});
+
+test("session.can enforces the role-page matrix", () => {
+  assert.equal(session.can("admin", "reports"), true);
+  assert.equal(session.can("teacher", "payments"), false);
+  assert.equal(session.can("teacher", "students"), true);
+  assert.equal(session.can("storekeeper", "issuing"), true);
+  assert.equal(session.can("storekeeper", "students"), false);
+  assert.equal(session.can("storekeeper", "settings"), false);
+  assert.equal(session.can("", "students"), false);
+});
+
+test("session.defaultPage returns the role landing page", () => {
+  assert.equal(session.defaultPage("admin"), "dashboard");
+  assert.equal(session.defaultPage("storekeeper"), "dashboard");
+  assert.equal(session.defaultPage("teacher"), "students");
+  assert.equal(session.defaultPage("bogus"), "dashboard");
+});
+
+test("session.resolvePage redirects unauthorized hashes to the role default", () => {
+  assert.equal(session.resolvePage("admin", "#reports"), "reports");
+  assert.equal(session.resolvePage("teacher", "#reports"), "students");
+  assert.equal(session.resolvePage("teacher", "#students"), "students");
+  assert.equal(session.resolvePage("storekeeper", "#settings"), "dashboard");
+  assert.equal(session.resolvePage("admin", "#bogus"), "dashboard");
+  assert.equal(session.resolvePage("", "#dashboard"), "dashboard");
+});
+
 const watchdog = setTimeout(() => {
   console.error("suite timed out with " + inflight.length + " tests not settled");
   process.exit(1);

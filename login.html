@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>CEC Books — Sign in</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { width: 100%; max-width: 380px; background: #fff; border: 1px solid #e5e8f0; border-radius: 14px; box-shadow: 0 12px 40px rgba(15, 23, 52, 0.08); padding: 28px; }
+    .login-brand { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+    .login-brand .brand-mark { width: 40px; height: 40px; border-radius: 10px; background: #0f1734; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .login-brand b { display: block; line-height: 1.2; }
+    .login-brand small { color: #66708a; display: block; }
+    .field { display: block; margin-bottom: 14px; }
+    .field input { width: 100%; }
+    .login-error { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 13px; }
+    .login-sub { color: #66708a; font-size: 12.5px; margin-top: 14px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-page">
+    <form class="login-card" id="loginForm" novalidate>
+      <div class="login-brand">
+        <span class="brand-mark">CEC</span>
+        <div><b>CEC Books</b><small>Management System</small></div>
+      </div>
+      <p class="eyebrow">Sign in to continue</p>
+      <label class="field">Username<input type="text" id="username" autocomplete="username" required autofocus></label>
+      <label class="field">Password<input type="password" id="password" autocomplete="current-password" required></label>
+      <p class="login-error" id="loginError" hidden></p>
+      <button type="submit" class="btn btn-primary" id="loginBtn" style="width:100%">Sign in</button>
+      <div class="login-sub">Sessions expire after 12 hours.</div>
+    </form>
+  </div>
+  <script src="js/session.js"></script>
+  <script>
+    (function () {
+      var form = document.getElementById("loginForm");
+      var errEl = document.getElementById("loginError");
+      var btn = document.getElementById("loginBtn");
+      var username = document.getElementById("username");
+      var password = document.getElementById("password");
+      var show = function (msg) { errEl.textContent = msg; errEl.hidden = false; };
+
+      var existing = window.CEC.session.load();
+      if (existing) window.location.replace("index.html#" + window.CEC.session.defaultPage(existing.role));
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        errEl.hidden = true;
+        btn.disabled = true;
+        try {
+          var res = await fetch("api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username.value.trim(), password: password.value })
+          });
+          var body = await res.json().catch(function () { return {}; });
+          if (!body || body.ok !== true || !body.token) {
+            show((body && body.error) || "Invalid username or password.");
+            return;
+          }
+          window.CEC.session.store(body.token, body.username, body.exp);
+          window.location.href = "index.html#" + window.CEC.session.defaultPage(body.role);
+        } catch (e2) {
+          show("Could not reach the server. Check your connection.");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
