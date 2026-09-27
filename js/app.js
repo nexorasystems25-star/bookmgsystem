@@ -382,6 +382,7 @@
   function renderStudents(data) {
     const cur = data.config.currency;
     const q = document.getElementById("studentSearch").value.trim().toLowerCase();
+    const byStudent = CEC.derive.issuedSummary(data.issued || []).byStudent;
     const rows = data.students.filter(s =>
       !q ||
       s.name.toLowerCase().indexOf(q) !== -1 ||
@@ -391,6 +392,8 @@
     document.getElementById("studentsBody").innerHTML = rows.length
       ? rows.map(s => {
           const balance = CEC.viewModels.studentOutstanding(s);
+          const obtained = byStudent[s.studentId] ? byStudent[s.studentId].qty : 0;
+          const left = Math.max((s.booksTotal || 0) - obtained, 0);
           return `
         <tr>
           <td>${esc(s.studentId)}</td>
@@ -400,9 +403,11 @@
           <td>${CEC.derive.formatAmount(s.booksPaid, cur)}</td>
           <td>${balance > 0 ? CEC.derive.formatAmount(balance, cur) : '<span class="positive">Paid</span>'}</td>
           <td><span class="pill ${statusPillClass(s.status)}">${esc(s.status)}</span></td>
+          <td>${obtained}</td>
+          <td>${left}</td>
         </tr>`;
         }).join("")
-      : emptyRow(7);
+      : emptyRow(9);
     document.getElementById("studentCount").textContent = rows.length + " of " + data.students.length;
   }
 
@@ -502,15 +507,17 @@
       : emptyRow(4, "No books collected yet.");
 
     const inv = CEC.viewModels.stockStatus(data.books);
+    const byBook = CEC.derive.issuedSummary(data.issued || []).byBook;
     document.getElementById("issueBooksBody").innerHTML = inv.rows.length
       ? inv.rows.map(r => `
         <tr>
           <td><b>${esc(r.subject)}</b></td>
           <td>${esc(r.category)}</td>
           <td>${r.stockQty}</td>
+          <td>${byBook[r.bookId] || 0}</td>
           <td><span class="pill ${stockPillClass(r.status)}">${r.status}</span></td>
         </tr>`).join("")
-      : emptyRow(4);
+      : emptyRow(5);
   }
 
   function renderReports(data) {
@@ -581,7 +588,13 @@
   }
 
   async function route() {
-    const page = CEC.viewModels.pageForHash(location.hash);
+    const sessionEntry = CEC.session.load();
+    const role = sessionEntry ? sessionEntry.role : "";
+    const page = CEC.session.resolvePage(role, location.hash);
+    if (page !== CEC.viewModels.pageForHash(location.hash)) {
+      location.hash = "#" + page;
+      return;
+    }
     setActiveNav(page);
     updateShell(page);
     currentData = await CEC.getAllData();
@@ -614,8 +627,39 @@
     });
   });
 
-  route().catch(err => {
-    console.error("Dashboard load failed:", err);
-    showToast("Could not load dashboard data.");
-  });
+  async function boot() {
+    const ok = await CEC.session.guard();
+    if (!ok) return;
+    applyRoleAccess();
+    route().catch(err => {
+      console.error("Dashboard load failed:", err);
+      showToast("Could not load dashboard data.");
+    });
+  }
+
+  function applyRoleAccess() {
+    const s = CEC.session.load();
+    const role = s ? s.role : "";
+    document.querySelectorAll(".nav-item[data-page]").forEach(item => {
+      item.hidden = !CEC.session.can(role, item.dataset.page);
+    });
+    const readOnly = role === "teacher" || CEC.session.isOffline();
+    if (readOnly) {
+      document.querySelectorAll("button[data-action]").forEach(btn => { btn.hidden = true; });
+    }
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn && role) {
+      logoutBtn.hidden = false;
+      logoutBtn.addEventListener("click", () => CEC.session.logout());
+    }
+    const profileMini = document.querySelector(".profile-mini");
+    if (profileMini && role) {
+      const nameEl = profileMini.querySelector("b");
+      const roleEl = profileMini.querySelector("small");
+      if (nameEl) nameEl.textContent = role === "admin" ? "David Admin" : role === "storekeeper" ? "Store Keeper" : "Yaw Teacher";
+      if (roleEl) roleEl.textContent = role === "admin" ? "Administrator" : role === "storekeeper" ? "Inventory & Payments" : "Read-only";
+    }
+  }
+
+  boot();
 })();

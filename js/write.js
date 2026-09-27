@@ -7,9 +7,12 @@
   const GENDERS = ["male", "female"];
 
   async function post(op, body) {
+    const headers = { "Content-Type": "application/json" };
+    const s = root.session && root.session.load();
+    if (s && s.token) headers.Authorization = "Bearer " + s.token;
     const res = await fetch("api/" + op, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify(body)
     });
     const data = await res.json().catch(() => ({}));
