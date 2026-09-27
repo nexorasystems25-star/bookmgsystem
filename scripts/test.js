@@ -654,22 +654,22 @@ test("runIssue caps an issue at the remaining entitlement from ClassFees", async
   assert.deepEqual(issuedCall.rows[0].slice(0, 4), ["I002", "S001", "B075", "2"]);
 });
 
-test("runIssue rejects an exercise book outside the student's entitlement (no writes)", async () => {
+test("runIssue rejects an exercise book the paid budget cannot cover whole-type (no writes)", async () => {
   const fees = [["class", "books_fee", "exbooks", "A1 Small", "D1 Small", "C Small", "G Small", "A1 Big", "D1 Big", "Exercise Book"], ["BS 1A", "1200", "20", "5", "5", "4", "4", "12", "12", "10"]];
   const books = [["book_id", "publisher", "subject", "category", "price", "stock_qty", "low_stock_threshold"], ["B077", "Exercise Book", "Writing Exercise Book C", "C Small", "2.5", "20", "5"]];
-  const unit = (exbooks) => ({
-    "Students!A:J": [["student_id", "name", "class", "gender", "academic_year", "books_fee", "books_paid", "books_total", "exbooks", "status"], ["S001", "Abena Mensah", "BS 1A", "female", "2026/2027", "1200", "800", "8", exbooks, "waiting"]],
+  const unit = (paid) => ({
+    "Students!A:J": [["student_id", "name", "class", "gender", "academic_year", "books_fee", "books_paid", "books_total", "exbooks", "status"], ["S001", "Abena Mensah", "BS 1A", "female", "2026/2027", "1200", paid, "8", "20", "waiting"]],
     "ClassFees!A:L": fees,
     "Books!A:I": books,
     "Activity!A:A": [["activity_id"], ["A006"]]
   });
-  const client = makeFakeClient(unit("2"));
-  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
+  const poor = makeFakeClient(unit("8"));
+  const r = await lib.runIssue(poor, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
   assert.equal(r.ok, false);
-  assert.match(r.error, /not part of/);
-  assert.equal(client.calls.length, 0, "no writes happened");
-  const fullClient = makeFakeClient(unit("20"));
-  const ok = await lib.runIssue(fullClient, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
+  assert.match(r.error, /paid budget/);
+  assert.equal(poor.calls.length, 0, "no writes happened");
+  const solvent = makeFakeClient(unit("10"));
+  const ok = await lib.runIssue(solvent, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
   assert.equal(ok.ok, true);
   assert.equal(ok.row.stock_qty, 19);
 });
@@ -1645,7 +1645,7 @@ test("viewModels.issuedBookIds strips quantity suffixes from tokens", () => {
 
 test("viewModels.issueEligibleExBooks returns per-size issues with qty and stock", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5, "D1 Small": 5 } }];
-  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10 };
+  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 25 };
   const books = [
     { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
     { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 4, price: 2.5 },
@@ -1658,20 +1658,20 @@ test("viewModels.issueEligibleExBooks returns per-size issues with qty and stock
 test("viewModels.issueEligibleExBooks requires exbooks>0, class match, and hides issued books", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
   const books = [
-    { bookId: "B075", subject: "Writing Exercise Book", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B076", subject: "Writing Exercise Book", category: "D1 Small", publisher: "Exercise Book", stockQty: 12 }
+    { bookId: "B075", subject: "Writing Exercise Book", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B076", subject: "Writing Exercise Book", category: "D1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
   assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 0 }, [], classFees), []);
-  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "BS 2", exbooks: 10 }, [], classFees), []);
-  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 10 }, [], []), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "BS 2", exbooks: 10, booksPaid: 12.5 }, [], classFees), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 10, booksPaid: 12.5 }, [], []), []);
   const activity = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
-  assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10 }, activity, classFees), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 12.5 }, activity, classFees), []);
 });
 
 test("viewModels.issueEligibleExBooks offers the remaining qty and hides a met requirement", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
   const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }];
-  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10 };
+  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 12.5 };
   const partial = [{ type: "issue", description: "Books issued to Ama [B075x3]" }];
   const got = vm.issueEligibleExBooks(books, student, partial, classFees);
   assert.equal(got.length, 1);
@@ -1683,23 +1683,24 @@ test("viewModels.issueEligibleExBooks offers the remaining qty and hides a met r
 
 test("viewModels.issueEligibleExBooks matches abbreviated Nursery class labels (N1)", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
-  const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 }];
-  const got = vm.issueEligibleExBooks(books, { studentId: "S1", name: "Ama", className: "N1", exbooks: 10 }, [], classFees);
+  const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }];
+  const got = vm.issueEligibleExBooks(books, { studentId: "S1", name: "Ama", className: "N1", exbooks: 10, booksPaid: 12.5 }, [], classFees);
   assert.deepEqual(got.map(x => x.book.bookId), ["B075"]);
 });
 
-test("viewModels.issueEligibleExBooks caps entitled sizes at the student's exbooks count", () => {
+test("viewModels.issueEligibleExBooks spends the paid budget on in-stock sizes whole-type in class order", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 20, sizes: { "A1 Small": 5, "D1 Small": 5, "C Small": 5, "G Small": 5 } }];
   const books = [
-    { bookId: "B075", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B078", category: "D1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B077", category: "C Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B079", category: "G Small", publisher: "Exercise Book", stockQty: 12 }
+    { bookId: "B075", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B078", category: "D1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B077", category: "C Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B079", category: "G Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
-  const partial = { className: "Nursery 1", exbooks: 10 };
-  assert.deepEqual(vm.issueEligibleExBooks(books, partial, [], classFees).map(x => x.book.bookId), ["B075", "B078"]);
-  const full = { className: "Nursery 1", exbooks: 20 };
-  assert.deepEqual(vm.issueEligibleExBooks(books, full, [], classFees).map(x => x.book.bookId), ["B075", "B078", "B077", "B079"]);
+  const base = { className: "Nursery 1", exbooks: 20 };
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 0 }), [], classFees), []);
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 12.5 }), [], classFees).map(x => x.book.bookId), ["B075"]);
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 25 }), [], classFees).map(x => x.book.bookId), ["B075", "B078"]);
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 50 }), [], classFees).map(x => x.book.bookId), ["B075", "B078", "B077", "B079"]);
 });
 
 test("viewModels.issuedBooks sums xN quantities across issue entries", () => {
@@ -1772,10 +1773,10 @@ test("viewModels.studentCollection remaining excludes textbooks already collecte
 
 test("viewModels.studentCollection remaining subtracts collected exbook quantities per size", () => {
   const classFees = [{ className: "KG 1", fee: 400, exbooks: 20, sizes: { "A1 Small": 5, "D1 Small": 5 } }];
-  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 0, booksTotal: 0, exbooks: 10 };
+  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 25, booksTotal: 0, exbooks: 10 };
   const books = [
-    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 12 }
+    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
   const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B075x2]" }];
   const got = vm.studentCollection(student, books, classFees, activity);
@@ -1785,39 +1786,51 @@ test("viewModels.studentCollection remaining subtracts collected exbook quantiti
   ]);
 });
 
-test("viewModels.studentCollection remaining drops full sizes and flags stock short", () => {
+test("viewModels.studentCollection remaining drops met sizes and hides stock-short sizes", () => {
   const classFees = [{ className: "KG 1", fee: 400, exbooks: 20, sizes: { "A1 Small": 5, "D1 Small": 5, "C Small": 5 } }];
-  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 0, booksTotal: 0, exbooks: 15 };
+  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 40, booksTotal: 0, exbooks: 15 };
   const books = [
-    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 3 },
-    { bookId: "B077", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", stockQty: 12 }
+    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
+    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 3, price: 2.5 },
+    { bookId: "B077", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
   const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B075x5,B078x1]" }];
   const got = vm.studentCollection(student, books, classFees, activity);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), [
-    { id: "B078", qty: 4, stockShort: true },
     { id: "B077", qty: 5, stockShort: false }
   ]);
 });
 
-test("viewModels.studentCollection remaining caps exbook sizes at the student's exbooks count", () => {
+test("viewModels.studentCollection remaining omits out-of-stock exbooks past the paid budget", () => {
   const classFees = [{ className: "BS 1A", fee: 1200, exbooks: 20, sizes: { "A1 Small": 5, "D1 Small": 5, "C Small": 4, "G Small": 4 } }];
   const books = [
-    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 12 },
-    { bookId: "B077", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", stockQty: 0 },
-    { bookId: "B079", subject: "Writing Exercise Book G", category: "G Small", publisher: "Exercise Book", stockQty: 0 }
+    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 30, price: 2.5 },
+    { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 30, price: 2.5 },
+    { bookId: "B077", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", stockQty: 0, price: 2.5 },
+    { bookId: "B079", subject: "Writing Exercise Book G", category: "G Small", publisher: "Exercise Book", stockQty: 0, price: 2.5 }
   ];
   const activity = [{ type: "issue", description: "Books issued to Richmond Mensah [B075x5,B078x5]" }];
-  const partial = { studentId: "S001", name: "Richmond Mensah", className: "BS 1A", booksPaid: 1200, booksTotal: 8, exbooks: 10 };
+  const partial = { studentId: "S001", name: "Richmond Mensah", className: "BS 1A", booksPaid: 800, booksTotal: 8, exbooks: 10 };
   const got = vm.studentCollection(partial, books, classFees, activity);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), []);
-  const full = Object.assign({}, partial, { exbooks: 20 });
-  const gotFull = vm.studentCollection(full, books, classFees, activity);
-  assert.deepEqual(gotFull.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), [
-    { id: "B077", qty: 4, stockShort: true },
-    { id: "B079", qty: 4, stockShort: true }
+  const stockedBooks = books.map(b => b.bookId === "B077" || b.bookId === "B079" ? Object.assign({}, b, { stockQty: 12 }) : b);
+  const gotStocked = vm.studentCollection(partial, stockedBooks, classFees, activity);
+  assert.deepEqual(gotStocked.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), [
+    { id: "B077", qty: 4, stockShort: false },
+    { id: "B079", qty: 4, stockShort: false }
+  ]);
+});
+
+test("viewModels.studentCollection remaining spends the paid budget on exbooks before textbooks", () => {
+  const classFees = [{ className: "KG 1", fee: 400, exbooks: 20, sizes: { "A1 Small": 5 } }];
+  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 80, booksTotal: 6, exbooks: 20 };
+  const books = [
+    { bookId: "B001", subject: "Literacy", category: "KG 1", publisher: "GES", price: 70, stockQty: 5 },
+    { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", price: 2.5, stockQty: 12 }
+  ];
+  const got = vm.studentCollection(student, books, classFees, []);
+  assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, kind: x.kind })), [
+    { id: "B075", qty: 5, kind: "exbook" }
   ]);
 });
 

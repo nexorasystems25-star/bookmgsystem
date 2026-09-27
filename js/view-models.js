@@ -277,20 +277,17 @@
     });
   }
 
-  function entitledExbookSizeNames(student, feesRow) {
-    const total = Number((student && student.exbooks) || 0);
-    if (!(total > 0)) return [];
-    const sizes = (feesRow && feesRow.sizes) || {};
-    const names = [];
-    let covered = 0;
-    Object.keys(sizes).forEach(name => {
-      if (covered >= total) return;
-      const qty = Number(sizes[name] || 0);
-      if (!(qty > 0)) return;
-      names.push(name);
-      covered += qty;
+  function collectedCost(issued, books) {
+    const priceById = {};
+    (books || []).forEach(b => {
+      const p = Number(b.price) || 0;
+      if (p > 0) priceById[b.bookId] = p;
     });
-    return names;
+    let cost = 0;
+    Object.keys(issued || {}).forEach(id => {
+      cost += (issued[id] || 0) * (priceById[id] || 0);
+    });
+    return cost;
   }
 
   function issueEligibleExBooks(books, student, activity, classFees) {
@@ -300,9 +297,10 @@
     const feesRow = (classFees || []).find(f => classKey(f.className) === target);
     if (!feesRow || !feesRow.sizes) return [];
     const received = issuedBooks(activity, student);
+    let budget = Number((student && student.booksPaid) || 0) - collectedCost(received, books);
     const out = [];
-    entitledExbookSizeNames(student, feesRow).forEach(sizeName => {
-      const qty = feesRow.sizes[sizeName];
+    Object.keys(feesRow.sizes).forEach(sizeName => {
+      const qty = Number(feesRow.sizes[sizeName] || 0);
       const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
       if (!book) return;
       const got = received[book.bookId] || 0;
@@ -310,6 +308,11 @@
       if (remaining <= 0) return;
       const stock = Number(book.stockQty) || 0;
       if (stock < remaining) return;
+      const price = Number(book.price) || 0;
+      if (!(price > 0)) return;
+      const cost = remaining * price;
+      if (cost > budget) return;
+      budget -= cost;
       out.push({ book: book, qty: remaining, required: qty, stock: stock });
     });
     return out;
@@ -360,20 +363,11 @@
     }).filter(Boolean);
 
     const remaining = [];
-    if (mode === "Textbooks" || mode === "Both") {
-      (books || []).forEach(b => {
-        if (isExerciseBook(b)) return;
-        if (classKey(b.category) !== target) return;
-        if (!(Number(b.price) > 0) || Number(b.price) > paid) return;
-        if (!(Number(b.stockQty) > 0)) return;
-        if (issued[b.bookId]) return;
-        remaining.push({ book: b, qty: 1, kind: "textbook" });
-      });
-    }
+    let budget = paid - collectedCost(issued, books);
     if ((mode === "ExBooks" || mode === "Both") && target) {
       const feesRow = (classFees || []).find(f => classKey(f.className) === target);
       if (feesRow && feesRow.sizes) {
-        entitledExbookSizeNames(student, feesRow).forEach(sizeName => {
+        Object.keys(feesRow.sizes).forEach(sizeName => {
           const sizeQty = Number(feesRow.sizes[sizeName] || 0);
           const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
           if (!book) return;
@@ -381,9 +375,25 @@
           const qty = sizeQty - got;
           if (qty <= 0) return;
           const stock = Number(book.stockQty) || 0;
-          remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: stock < qty });
+          if (stock < qty) return;
+          const price = Number(book.price) || 0;
+          if (!(price > 0)) return;
+          const cost = qty * price;
+          if (cost > budget) return;
+          budget -= cost;
+          remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: false });
         });
       }
+    }
+    if (mode === "Textbooks" || mode === "Both") {
+      (books || []).forEach(b => {
+        if (isExerciseBook(b)) return;
+        if (classKey(b.category) !== target) return;
+        if (!(Number(b.price) > 0) || Number(b.price) > budget) return;
+        if (!(Number(b.stockQty) > 0)) return;
+        if (issued[b.bookId]) return;
+        remaining.push({ book: b, qty: 1, kind: "textbook" });
+      });
     }
 
     return { mode: mode, collected: collected, remaining: remaining };
