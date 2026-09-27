@@ -68,7 +68,7 @@ Browser side: the *Record payment* / *Register student* / *Issue books* / *Adjus
 
 Test locally: `npm test` (unit + API layer) and `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` (browser write-flow E2E, throwaway harness).
 
-> **Security note:** authentication for the write endpoints is intentionally deferred — the POST endpoints are open. Restrict access before exposing them publicly. See `docs/superpowers/specs/2026-09-23-stage-03-write-back-google-sheets-design.md`.
+> **Security note (auth):** all write endpoints (`/api/payment`, `/api/student`, `/api/issue`, `/api/stock`) and the new `/api/login` + `/api/check` require a valid HMAC-signed session token (`Authorization: Bearer <token>`). Credentials live in a `Users` tab of a **separate, private** spreadsheet (`AUTH_USERS_SPREADSHEET_ID`) and are seeded with `node scripts/create-user.js --init --username <name> --password <pw> --role {admin|teacher|storekeeper}`. Add `AUTH_SESSION_SECRET` (any long random string) and `AUTH_USERS_SPREADSHEET_ID` to Vercel project settings. Design: `docs/superpowers/specs/2026-09-26-login-roles-design.md`.
 
 ## Stage 04 — Multi-view navigation
 
@@ -95,3 +95,14 @@ Architecture:
 - **`js/write.js`** — after a successful write it now calls `CEC.refreshAll()` (clear cache → refetch dataset → re-render the **currently active** view), so whichever page you're on repaints after a payment, registration, issue or stock adjustment.
 
 Test locally: `npm test` (unit), plus the throwaway browser harnesses in Temp: `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-browser-e2e.cjs` (dashboard + offline), `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-write-e2e.cjs` (write flows), and `node C:\Users\SANDRA\AppData\Local\Temp\opencode\cec-nav-e2e.cjs` (navigation + deep links + repaint-after-write). See `docs/superpowers/plans/2026-09-24-stage-04-multi-view-navigation.md` and `docs/superpowers/specs/2026-09-24-stage-04-multi-view-navigation-design.md`.
+
+## Stage 05 — Authentication & roles
+
+The app now requires a login. New files: `login.html`, `js/session.js`, `api/login.js`, `api/check.js`, `scripts/create-user.js`.
+
+- Seed your private users spreadsheet: `node scripts/create-user.js --init --username admin --password <pw> --role admin` (repeat for `teacher` / `storekeeper`). `--init` creates the tab + header row once.
+- Roles: admin (everything), teacher (`#students`, read-only, with "Books obtained / Left to give" from the new Issued ledger), storekeeper (Dashboard / Payments / Inventory / Issuing; can record payments and issue books; sees "Issued already" per book).
+- Sessions are stateless 12-hour HMAC tokens; a stored token is validated against `/api/check` on every load. Network failure → offline read-only view with all writes hidden. Any 401 returns you to `login.html`.
+- The Issued ledger (`Issued` tab in the public sheet, written by `/api/issue`) is what makes "what has the student obtained / what is left" answerable.
+- Live use requires the `Issued` tab to exist in the main spreadsheet with header `issue_id, student_id, book_id, qty, date`. It is where `/api/issue` records every resolved issue. Until it exists, issuing fails at runtime — and a `node scripts/sync.js` run without OAuth credentials silently falls back to the first sheet, so the snapshot guard below skips it rather than corrupting `data/issued.json`.
+- Requires env vars on Vercel and in `.env` (see `.env.example`): `AUTH_USERS_SPREADSHEET_ID`, `AUTH_SESSION_SECRET`. The read path stays public by design (see spec).
