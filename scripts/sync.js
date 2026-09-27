@@ -7,6 +7,7 @@ const TABS = {
   Payments: "payments.json",
   Activity: "activity.json",
   Books: "books.json",
+  Issued: "issued.json",
   ClassFees: "class-fees.json",
   Config: "config.json"
 };

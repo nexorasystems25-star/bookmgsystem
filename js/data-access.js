@@ -94,13 +94,14 @@
     if (sessionData) return sessionData;
     CEC.meta = await loadMeta();
 
-    const [studentsRows, paymentsRows, activityRows, booksRows, feesRows, configRows] = await Promise.all([
+    const [studentsRows, paymentsRows, activityRows, booksRows, feesRows, configRows, issuedRows] = await Promise.all([
       fetchTab("Students", "students.json"),
       fetchTab("Payments", "payments.json"),
       fetchTab("Activity", "activity.json"),
       fetchTab("Books", "books.json"),
       fetchClassFees(),
-      fetchTab("Config", "config.json")
+      fetchTab("Config", "config.json"),
+      fetchTab("Issued", "issued.json")
     ]);
 
     const students = CEC.derive.normalizeStudents(studentsRows);
@@ -109,6 +110,7 @@
     const books = CEC.derive.normalizeBooks(booksRows);
     const classFees = CEC.derive.normalizeClassFees(feesRows);
     const config = CEC.derive.normalizeConfig(configRows);
+    const issued = CEC.derive.normalizeIssued(issuedRows);
 
     sessionData = {
       students,
@@ -116,6 +118,7 @@
       activity,
       books,
       classFees,
+      issued,
       config,
       lastSynced: (CEC.meta && CEC.meta.last_synced) || config.lastSynced,
       offline: !anyTabLive()

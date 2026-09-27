@@ -102,6 +102,32 @@
       });
   }
 
+  function normalizeIssued(rows) {
+    return (rows || []).map(r => ({
+      issueId: r.issue_id,
+      studentId: r.student_id,
+      bookId: r.book_id,
+      qty: num(r.qty),
+      date: r.date
+    }));
+  }
+
+  function issuedSummary(issued) {
+    const byStudent = {};
+    const byBook = {};
+    (issued || []).forEach(i => {
+      const sid = String(i.studentId || "");
+      const bid = String(i.bookId || "");
+      if (sid) {
+        byStudent[sid] = byStudent[sid] || { books: 0, qty: 0 };
+        byStudent[sid].books += 1;
+        byStudent[sid].qty += i.qty || 0;
+      }
+      if (bid) byBook[bid] = (byBook[bid] || 0) + (i.qty || 0);
+    });
+    return { byStudent, byBook };
+  }
+
   function normalizeConfig(rows) {
     const r = rows[0] || {};
     return {
@@ -254,6 +280,8 @@
     normalizeActivity,
     normalizeBooks,
     normalizeClassFees,
+    normalizeIssued,
+    issuedSummary,
     normalizeConfig,
     buildReadiness,
     buildKpis,

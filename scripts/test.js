@@ -1830,6 +1830,36 @@ test("viewModels.exportReports emits method, class and outstanding sections", ()
   assert.ok(got.rows.some(r => r[0] && r[0].indexOf("Kwame") !== -1 && r[1] === 700));
 });
 
+test("derive.normalizeIssued maps rows to issued records", () => {
+  const rows = [
+    { issue_id: "I001", student_id: "S001", book_id: "B003", qty: "2", date: "2026-09-23" },
+    { issue_id: "I002", student_id: "S001", book_id: "B075", qty: "5", date: "2026-09-23" },
+    { issue_id: "I003", student_id: "S002", book_id: "B001", qty: "1", date: "2026-09-24" }
+  ];
+  const issued = derive.normalizeIssued(rows);
+  assert.deepEqual(issued[0], { issueId: "I001", studentId: "S001", bookId: "B003", qty: 2, date: "2026-09-23" });
+  assert.equal(issued[1].qty, 5);
+});
+
+test("derive.issuedSummary aggregates by student and by book", () => {
+  const issued = derive.normalizeIssued([
+    { issue_id: "I001", student_id: "S001", book_id: "B003", qty: "2", date: "2026-09-23" },
+    { issue_id: "I002", student_id: "S001", book_id: "B075", qty: "5", date: "2026-09-23" },
+    { issue_id: "I003", student_id: "S002", book_id: "B001", qty: "1", date: "2026-09-24" }
+  ]);
+  const s = derive.issuedSummary(issued);
+  assert.deepEqual(s.byStudent.S001, { books: 2, qty: 7 });
+  assert.deepEqual(s.byStudent.S002, { books: 1, qty: 1 });
+  assert.deepEqual(s.byBook, { B003: 2, B075: 5, B001: 1 });
+});
+
+test("derive.issuedSummary tolerates empty and unknown rows", () => {
+  const s = derive.issuedSummary([]);
+  assert.deepEqual(s, { byStudent: {}, byBook: {} });
+  const s2 = derive.issuedSummary(derive.normalizeIssued([{ qty: "3" }]));
+  assert.deepEqual(s2, { byStudent: {}, byBook: {} });
+});
+
 const watchdog = setTimeout(() => {
   console.error("suite timed out with " + inflight.length + " tests not settled");
   process.exit(1);
