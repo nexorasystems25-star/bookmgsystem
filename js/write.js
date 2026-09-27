@@ -218,7 +218,9 @@
       exbooks.forEach(x => {
         parts.push(
           '<label class="book-option"><input type="checkbox" data-exbook-check value="' + esc(x.book.bookId) + '" data-qty="' + x.qty + '">' +
-          '<span class="book-name">' + esc(x.book.subject) + " (" + esc(x.book.category) + ") · need " + x.qty + " · stock " + x.stock + "</small></span>" +
+          '<span class="book-name">' + esc(x.book.subject) + " (" + esc(x.book.category) + ")" +
+          " · need " + x.required + (x.qty < x.required ? " · " + x.qty + " left" : "") +
+          " · stock " + x.stock + "</span>" +
           '<span class="price">×' + x.qty + "</span></label>"
         );
       });

@@ -283,17 +283,19 @@
     if (!target) return [];
     const feesRow = (classFees || []).find(f => classKey(f.className) === target);
     if (!feesRow || !feesRow.sizes) return [];
-    const issued = issuedBookIds(activity, student);
+    const received = issuedBooks(activity, student);
     const out = [];
     Object.keys(feesRow.sizes).forEach(sizeName => {
       const qty = feesRow.sizes[sizeName];
       if (!(qty > 0)) return;
       const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
       if (!book) return;
-      if (issued.indexOf(book.bookId) !== -1) return;
+      const got = received[book.bookId] || 0;
+      const remaining = qty - got;
+      if (remaining <= 0) return;
       const stock = Number(book.stockQty) || 0;
-      if (stock < qty) return;
-      out.push({ book: book, qty: qty, stock: stock });
+      if (stock < remaining) return;
+      out.push({ book: book, qty: remaining, required: qty, stock: stock });
     });
     return out;
   }

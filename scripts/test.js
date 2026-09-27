@@ -580,38 +580,83 @@ test("runStudent appends student + activity", async () => {
 
 test("runIssue decrements stock and appends activity", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B003","Pearson","Integrated Science","Core","92","12","15"]],
     "Activity!A:A": [["activity_id"],["A006"]]
   });
-  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B003", qty: 2 });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B003", qty: 1 });
   assert.equal(r.ok, true);
-  assert.equal(r.row.stock_qty, 10);
+  assert.equal(r.row.stock_qty, 11);
   assert.equal(client.calls[0].op, "update");
   assert.equal(client.calls[0].range, "Books!F2");
-  assert.deepEqual(client.calls[0].values, [["10"]]);
+  assert.deepEqual(client.calls[0].values, [["11"]]);
   assert.match(client.calls[1].rows[0][2], /Books issued to Abena Mensah/);
   assert.equal(client.calls[2].tab, "Issued");
   assert.equal(client.calls[2].rows[0][0], "I001");
   assert.equal(client.calls[2].rows[0][1], "S001");
   assert.equal(client.calls[2].rows[0][2], "B003");
-  assert.equal(client.calls[2].rows[0][3], "2");
+  assert.equal(client.calls[2].rows[0][3], "1");
   assert.match(client.calls[2].rows[0][4], /^\d{4}-\d{2}-\d{2}$/);
 });
 
-test("runIssue rejects when stock would go negative", async () => {
+test("runIssue rejects re-issuing a textbook past its single copy (no writes)", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","BWP - Mathematics","Core","85","2","10"]]
   });
   const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B001", qty: 5 });
   assert.equal(r.ok, false);
+  assert.match(r.error, /only 1 of the required 1 remains/);
   assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runIssue rejects a textbook already issued to the student (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","Math","Core","85","40","10"]],
+    "Issued!A:F": [["issue_id","student_id","book_id","qty","date"],["I001","S001","B001","1","2026-09-24"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B001", qty: 1 });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /already issued/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runIssue rejects an exercise book past its ClassFees requirement (no writes)", async () => {
+  const client = makeFakeClient({
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
+    "ClassFees!A:L": [["class","books_fee","exbooks","A1 Small","D1 Small","C Small","G Small","A1 Big","D1 Big","Exercise Book"],["BS 1A","1200","2","5","5","4","4","12","12","10"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B075","Exercise Book","A1 Small","A1 Small","2.5","12","5"]],
+    "Issued!A:F": [["issue_id","student_id","book_id","qty","date"],["I001","S001","B075","5","2026-09-24"]]
+  });
+  const r = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B075", qty: 1 });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /already issued/);
+  assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runIssue caps an issue at the remaining entitlement from ClassFees", async () => {
+  const client = makeFakeClient({
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
+    "ClassFees!A:L": [["class","books_fee","exbooks","A1 Small","D1 Small","C Small","G Small","A1 Big","D1 Big","Exercise Book"],["BS 1A","1200","2","5","5","4","4","12","12","10"]],
+    "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B075","Exercise Book","A1 Small","A1 Small","2.5","12","5"]],
+    "Issued!A:F": [["issue_id","student_id","book_id","qty","date"],["I001","S001","B075","3","2026-09-24"]],
+    "Activity!A:A": [["activity_id"],["A006"]]
+  });
+  const over = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B075", qty: 5 });
+  assert.equal(over.ok, false);
+  assert.match(over.error, /only 2 of the required 5 remains/);
+  assert.equal(client.calls.length, 0, "no writes on over-issue");
+  const ok = await lib.runIssue(client, "spr", { student_id: "S001", book_id: "B075", qty: 2 });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.row.stock_qty, 10);
+  const issuedCall = client.calls.find(c => c.tab === "Issued");
+  assert.deepEqual(issuedCall.rows[0].slice(0, 4), ["I002", "S001", "B075", "2"]);
 });
 
 test("runIssue applies per-item quantities from a mixed books array", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
       ["B001","GoldenA","Math","Core","85","40","10"],
       ["B075","Exercise Book","A1 Small","A1 Small","2.5","12","5"]],
@@ -631,12 +676,12 @@ test("runIssue applies per-item quantities from a mixed books array", async () =
 
 test("runIssue rolls and appends one Issued row per resolved book", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id", "name"], ["S001", "Abena Mensah"]],
+    "Students!A:J": [["student_id", "name", "class", "gender", "academic_year", "books_fee", "books_paid", "books_total", "exbooks", "status"], ["S001", "Abena Mensah", "BS 1A", "female", "2026/2027", "1200", "800", "8", "2", "waiting"]],
     "Books!A:I": [["book_id", "publisher", "subject", "category", "price", "stock_qty", "low_stock_threshold"],
       ["B001", "GoldenA", "Math", "Core", "85", "40", "10"],
       ["B075", "Exercise Book", "A1 Small", "A1 Small", "2.5", "12", "5"]],
     "Activity!A:A": [["activity_id"], ["A006"]],
-    "Issued!A:A": [["issue_id"], ["I009"]]
+    "Issued!A:F": [["issue_id", "student_id", "book_id", "qty", "date"], ["I009", "S900", "B999", "1", "2026-09-24"]]
   });
   const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001"] });
   assert.equal(r.ok, true);
@@ -646,7 +691,7 @@ test("runIssue rolls and appends one Issued row per resolved book", async () => 
 
 test("runIssue rejects per-item quantity when stock is insufficient (no writes)", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
       ["B075","Exercise Book","A1 Small","A1 Small","2.5","3","5"]]
   });
@@ -1424,7 +1469,7 @@ test("cellNum returns 0 for blank cells and throws on non-numeric values", async
 
 test("runIssue rejects when the stock cell is non-numeric (no writes)", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B009","GoldenA","BWP - Creative Arts","Core","95","abc","10"]]
   });
   await assert.rejects(() => lib.runIssue(client, "spr", { student_id: "S001", book_id: "B009", qty: 1 }), /non-numeric/);
@@ -1433,7 +1478,7 @@ test("runIssue rejects when the stock cell is non-numeric (no writes)", async ()
 
 test("runIssue issues multiple books via books array and logs one activity row", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
       ["B001","GoldenA","Math","Core","85","40","10"],["B002","GoldenA","English","Core","78","25","10"]],
     "Activity!A:A": [["activity_id"],["A006"]]
@@ -1451,7 +1496,7 @@ test("runIssue issues multiple books via books array and logs one activity row",
 
 test("runIssue multi-book rejects when any book lacks stock (no writes)", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],
       ["B001","GoldenA","Math","Core","85","0","10"],["B002","GoldenA","English","Core","78","25","10"]]
   });
@@ -1463,7 +1508,7 @@ test("runIssue multi-book rejects when any book lacks stock (no writes)", async 
 
 test("runIssue multi-book reports unknown book ids", async () => {
   const client = makeFakeClient({
-    "Students!A:B": [["student_id","name"],["S001","Abena Mensah"]],
+    "Students!A:J": [["student_id","name","class","gender","academic_year","books_fee","books_paid","books_total","exbooks","status"],["S001","Abena Mensah","BS 1A","female","2026/2027","1200","800","8","2","waiting"]],
     "Books!A:I": [["book_id","publisher","subject","category","price","stock_qty","low_stock_threshold"],["B001","GoldenA","Math","Core","85","40","10"]]
   });
   const r = await lib.runIssue(client, "spr", { student_id: "S001", books: ["B001", "B999"] });
@@ -1601,6 +1646,19 @@ test("viewModels.issueEligibleExBooks requires exbooks>0, class match, and hides
   assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 10 }, [], []), []);
   const activity = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
   assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10 }, activity, classFees), []);
+});
+
+test("viewModels.issueEligibleExBooks offers the remaining qty and hides a met requirement", () => {
+  const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
+  const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }];
+  const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10 };
+  const partial = [{ type: "issue", description: "Books issued to Ama [B075x3]" }];
+  const got = vm.issueEligibleExBooks(books, student, partial, classFees);
+  assert.equal(got.length, 1);
+  assert.equal(got[0].qty, 2);
+  assert.equal(got[0].required, 5);
+  const full = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
+  assert.deepEqual(vm.issueEligibleExBooks(books, student, full, classFees), []);
 });
 
 test("viewModels.issueEligibleExBooks matches abbreviated Nursery class labels (N1)", () => {

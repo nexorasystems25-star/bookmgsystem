@@ -5,6 +5,7 @@ const API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const METHODS = ["Cash", "MTN MoMo", "Telecel"];
 const GENDERS = ["male", "female"];
 const CONFIG_HEADER = ["academic_year", "daily_payment_target", "currency", "last_synced"];
+const CLASS_FEE_SIZE_COLUMNS = ["A1 Small", "D1 Small", "C Small", "G Small", "A1 Big", "D1 Big", "Exercise Book"];
 
 const crypto = require("node:crypto");
 const { promisify } = require("node:util");
@@ -346,6 +347,46 @@ function cellNum(v) {
   return n;
 }
 
+async function loadClassFeeSizes(client, spreadsheetId, className) {
+  const klass = String(className || "").trim().toLowerCase();
+  if (!klass) return {};
+  const rows = await client.sheetsGet(spreadsheetId, "ClassFees!A:L");
+  const headers = ((rows && rows[0]) || []).map(h => String(h || "").trim());
+  const classCol = headers.indexOf("class") >= 0 ? headers.indexOf("class") : headers.indexOf("className");
+  if (classCol < 0) return {};
+  const colByLower = {};
+  headers.forEach((h, i) => { colByLower[h.toLowerCase()] = i; });
+  for (let i = 1; i < (rows || []).length; i++) {
+    if (String(rows[i][classCol] || "").trim().toLowerCase() !== klass) continue;
+    const sizes = {};
+    CLASS_FEE_SIZE_COLUMNS.forEach(name => {
+      const idx = colByLower[name.toLowerCase()];
+      if (idx === undefined) return;
+      const v = Number(rows[i][idx]);
+      if (v > 0) sizes[name] = v;
+    });
+    return sizes;
+  }
+  return {};
+}
+
+function issuedQuantityByStudent(rows, studentId) {
+  const out = {};
+  const headers = ((rows && rows[0]) || []).map(h => String(h || "").trim());
+  const sidCol = headers.indexOf("student_id");
+  const bidCol = headers.indexOf("book_id");
+  const qtyCol = headers.indexOf("qty");
+  if (sidCol < 0 || bidCol < 0 || qtyCol < 0) return out;
+  for (let i = 1; i < (rows || []).length; i++) {
+    if (String(rows[i][sidCol] || "") !== String(studentId)) continue;
+    const bid = String(rows[i][bidCol] || "");
+    if (!bid) continue;
+    const q = Number(rows[i][qtyCol]);
+    out[bid] = (out[bid] || 0) + (Number.isFinite(q) && q > 0 ? q : 0);
+  }
+  return out;
+}
+
 async function runPayment(client, spreadsheetId, payload) {
   const students = await client.sheetsGet(spreadsheetId, "Students!A:J");
   const found = findRowIndex(students, "student_id", payload.student_id);
@@ -388,10 +429,14 @@ async function runStudent(client, spreadsheetId, payload) {
 }
 
 async function runIssue(client, spreadsheetId, payload) {
-  const students = await client.sheetsGet(spreadsheetId, "Students!A:B");
+  const students = await client.sheetsGet(spreadsheetId, "Students!A:J");
   const foundStudent = findRowIndex(students, "student_id", payload.student_id);
   if (!foundStudent) return { ok: false, error: "student_id not found" };
-  const studentName = students[foundStudent.rowIndex - 1][1];
+  const studentRow = students[foundStudent.rowIndex - 1];
+  const studentName = studentRow[1];
+  const classSizes = await loadClassFeeSizes(client, spreadsheetId, studentRow[2]);
+  const issuedRows = await client.sheetsGet(spreadsheetId, "Issued!A:F");
+  const alreadyReceived = issuedQuantityByStudent(issuedRows, payload.student_id);
 
   const requests = payload.books
     ? payload.books.map(b => (typeof b === "string" ? { book_id: b, qty: 1 } : b))
@@ -404,6 +449,19 @@ async function runIssue(client, spreadsheetId, payload) {
     if (!foundBook) return { ok: false, error: "book_id not found: " + req.book_id };
     const bookRow = books[foundBook.rowIndex - 1];
     const stockQty = cellNum(bookRow[5]);
+    const category = String(bookRow[3] || "").trim();
+    const sizeName = CLASS_FEE_SIZE_COLUMNS.find(name => name.toLowerCase() === category.toLowerCase());
+    const required = sizeName ? (Number(classSizes[sizeName]) || 0) : 1;
+    if (required > 0) {
+      const received = alreadyReceived[req.book_id] || 0;
+      const remaining = required - received;
+      if (remaining <= 0) {
+        return { ok: false, error: req.book_id + " was already issued to this student (required " + required + ", received " + received + ")" };
+      }
+      if (req.qty > remaining) {
+        return { ok: false, error: "cannot issue " + req.qty + " of " + bookRow[2] + ": only " + remaining + " of the required " + required + " remains for this student" };
+      }
+    }
     if (req.qty > stockQty) return { ok: false, error: "insufficient stock for " + bookRow[2] + ": only " + stockQty + " available" };
     resolved.push({ foundBook, bookRow, stockQty, qty: req.qty });
   }
@@ -417,8 +475,7 @@ async function runIssue(client, spreadsheetId, payload) {
   await client.sheetsAppend(spreadsheetId, "Activity", [[
     activityId, "issue", "Books issued to " + studentName + " [" + issuedIds + "]", "0", todayISO()
   ]]);
-  const issuedTab = await client.sheetsGet(spreadsheetId, "Issued!A:A");
-  let issuedNum = Number(nextId(issuedTab, "I").slice(1));
+  let issuedNum = Number(nextId(issuedRows.map(r => [String(r[0] || "")]), "I").slice(1));
   for (const x of resolved) {
     await client.sheetsAppend(spreadsheetId, "Issued", [[
       "I" + String(issuedNum++).padStart(3, "0"),
