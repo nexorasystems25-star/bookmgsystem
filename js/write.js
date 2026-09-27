@@ -5,6 +5,7 @@
 
   const METHODS = ["Cash", "MTN MoMo", "Telecel"];
   const GENDERS = ["male", "female"];
+  const CONFIG_SOURCES = ["live", "offline"];
 
   async function post(op, body) {
     const headers = { "Content-Type": "application/json" };
@@ -34,14 +35,55 @@
     recordPayment: p => runAndRefresh("payment", p),
     registerStudent: s => runAndRefresh("student", s),
     issueBooks: i => runAndRefresh("issue", i),
-    adjustStock: s => runAndRefresh("stock", s)
+    adjustStock: s => runAndRefresh("stock", s),
+    updateConfig: p => runAndRefresh("config", p)
   };
+
+  // O2 split validation: the server only checks shape, so the client additionally requires
+  // the year to exist in the dataset — a typo must not become a selectable-but-empty default.
+  function validateConfigDraft(draft, data) {
+    const year = String((draft && draft.year) || "").trim();
+    if (!year) return { ok: false, error: "Academic year is required." };
+    const years = root.viewModels.availableYears((data && data.students) || [], (data && data.config) || {});
+    if (!years.length) return { ok: false, error: "No academic years found in the loaded data." };
+    if (years.indexOf(year) === -1) {
+      return { ok: false, error: 'Academic year "' + year + '" is not in the loaded data. Pick one of: ' + years.join(", ") };
+    }
+    // Number("") and Number(null) are both 0, so emptiness is checked before the conversion.
+    const rawTarget = draft && draft.target != null ? String(draft.target).trim() : "";
+    if (!rawTarget) return { ok: false, error: "Daily payment target is required." };
+    const target = Number(rawTarget);
+    if (!isFinite(target) || target < 0) return { ok: false, error: "Daily payment target must be zero or more." };
+    const currency = String((draft && draft.currency) || "").trim();
+    if (!currency) return { ok: false, error: "Currency is required." };
+    if (currency.length > 10) return { ok: false, error: "Currency must be 10 characters or fewer." };
+    const source = String((draft && draft.source) || "live");
+    if (CONFIG_SOURCES.indexOf(source) === -1) return { ok: false, error: "Select live or offline as the data source." };
+    return {
+      ok: true,
+      payload: { academic_year: year, daily_payment_target: target, currency: currency },
+      source: source
+    };
+  }
+
+  // O7: the local data-source flag flips only after a successful save. `apply` is injected so
+  // the ordering is testable without a DOM.
+  function applyConfigResult(result, source, apply) {
+    if (!result || result.ok !== true) {
+      return { applied: false, error: (result && result.error) || "Settings were not saved." };
+    }
+    apply(source === "offline");
+    return { applied: true, error: "" };
+  }
+
+  root.configForm = { validate: validateConfigDraft, applyResult: applyConfigResult };
 
   const dialogs = {
     payment: document.getElementById("dlgPayment"),
     student: document.getElementById("dlgStudent"),
     issue: document.getElementById("dlgIssue"),
-    stock: document.getElementById("dlgStock")
+    stock: document.getElementById("dlgStock"),
+    config: document.getElementById("dlgConfig")
   };
 
   let studentBooks = [];
@@ -85,6 +127,10 @@
     }
   });
 
+  document.querySelectorAll("[data-edit-config]").forEach(btn => {
+    btn.addEventListener("click", async () => { await openDialog("config"); });
+  });
+
   document.querySelectorAll("[data-close]").forEach(btn => {
     btn.addEventListener("click", () => {
       const dlg = btn.closest("dialog");
@@ -97,6 +143,15 @@
   });
 
   async function populate(name) {
+    if (name === "config") {
+      const data = await root.getAllData();
+      const cfg = data.config || {};
+      dialogs.config.querySelector("[data-year]").value = cfg.activeYear || "";
+      dialogs.config.querySelector("[data-target]").value = cfg.dailyTarget != null ? String(cfg.dailyTarget) : "";
+      dialogs.config.querySelector("[data-currency]").value = cfg.currency || "";
+      dialogs.config.querySelector("[data-source]").value = root.forceOffline ? "offline" : "live";
+      return;
+    }
     const opts = await root.fetchOptions();
     if (name === "student") {
       studentBooks = opts.books;
@@ -335,6 +390,31 @@
       await root.write.adjustStock({ stock_adjustments: adjustments });
       dlg.close();
       showToast("Stock adjusted.");
+    } catch (err) {
+      showError(dlg, err.message);
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  dialogs.config.addEventListener("submit", async e => {
+    e.preventDefault();
+    const dlg = e.currentTarget;
+    const checked = validateConfigDraft({
+      year: readValue(dlg, "[data-year]"),
+      target: readValue(dlg, "[data-target]"),
+      currency: readValue(dlg, "[data-currency]"),
+      source: readValue(dlg, "[data-source]")
+    }, await root.getAllData());
+    if (!checked.ok) return showError(dlg, checked.error);
+    const submit = dlg.querySelector("[data-submit]");
+    submit.disabled = true;
+    try {
+      await root.write.updateConfig(checked.payload);
+      // O7: a failed POST throws above, so nothing has flipped locally by the time we get here.
+      applyConfigResult({ ok: true }, checked.source, offline => { root.forceOffline = offline; });
+      dlg.close();
+      showToast("Settings updated.");
     } catch (err) {
       showError(dlg, err.message);
     } finally {

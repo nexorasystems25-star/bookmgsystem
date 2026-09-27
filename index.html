@@ -408,19 +408,19 @@
           </div>
           <div class="dashboard-grid">
             <section class="panel">
-              <div class="panel-head"><div><h2>Academic year</h2><p>Currently active period.</p></div></div>
+              <div class="panel-head"><div><h2>Academic year</h2><p>Currently active period.</p></div><button type="button" class="btn btn-light" data-edit-config>Edit</button></div>
               <p class="settings-value" id="settingsYear">—</p>
             </section>
             <section class="panel">
-              <div class="panel-head"><div><h2>Daily payment target</h2><p>Benchmark shown on the dashboard.</p></div></div>
+              <div class="panel-head"><div><h2>Daily payment target</h2><p>Benchmark shown on the dashboard.</p></div><button type="button" class="btn btn-light" data-edit-config>Edit</button></div>
               <p class="settings-value" id="settingsTarget">—</p>
             </section>
             <section class="panel">
-              <div class="panel-head"><div><h2>Currency</h2><p>Symbol prefix for all amounts.</p></div></div>
+              <div class="panel-head"><div><h2>Currency</h2><p>Symbol prefix for all amounts.</p></div><button type="button" class="btn btn-light" data-edit-config>Edit</button></div>
               <p class="settings-value" id="settingsCurrency">—</p>
             </section>
             <section class="panel">
-              <div class="panel-head"><div><h2>Data source</h2><p>Live Google Sheet or offline snapshot.</p></div></div>
+              <div class="panel-head"><div><h2>Data source</h2><p>Live Google Sheet or offline snapshot.</p></div><button type="button" class="btn btn-light" data-edit-config>Edit</button></div>
               <p class="settings-value" id="settingsStatus">—</p>
             </section>
           </div>
@@ -502,6 +502,26 @@
       <div class="modal-foot">
         <button type="button" class="btn btn-light" data-close>Cancel</button>
         <button type="submit" class="btn btn-primary" data-submit>Apply</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="dlgConfig">
+    <form method="dialog">
+      <div class="modal-head"><h3>System settings</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <label>Academic year<small>Must be a year already present in the loaded data.</small><input type="text" data-year></label>
+        <label>Daily payment target<input type="number" data-target min="0" step="0.01"></label>
+        <label>Currency<input type="text" data-currency placeholder="GH₵"></label>
+        <label>Data source<select data-source>
+          <option value="live">Live (Google Sheets)</option>
+          <option value="offline">Offline (snapshot)</option>
+        </select></label>
+        <p class="modal-error" data-error hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-light" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-submit>Save settings</button>
       </div>
     </form>
   </dialog>

@@ -1048,6 +1048,261 @@ test("O6: init writes nothing to localStorage when the legacy sessionStorage key
   });
 });
 
+// ---- Settings dialog (js/write.js) -------------------------------------------------
+// js/write.js is a browser IIFE that wires its dialogs while loading, so it is evaluated
+// against a structural stub: no real DOM, just recorders for ids, selectors and listeners.
+// That keeps every assertion about *what the module binds*, not about browser behaviour.
+// setTimeout/clearTimeout are shadowed so a toast timer never holds the suite open.
+const WRITE_SRC = fs.readFileSync(path.join(__dirname, "..", "js", "write.js"), "utf8");
+const INDEX_HTML = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+// Required here (not reused from the view-models section further down) so this block stands alone.
+const viewModels = require("../js/view-models.js");
+
+function stubEl(name) {
+  const el = {
+    name,
+    children: {},
+    listeners: [],
+    queries: [],
+    value: "",
+    hidden: true,
+    textContent: "",
+    innerHTML: "",
+    dataset: {},
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener(type, fn) { el.listeners.push({ type, fn }); },
+    hasListener(type) { return el.listeners.some(l => l.type === type); },
+    querySelector(sel) {
+      el.queries.push(sel);
+      if (!el.children[sel]) el.children[sel] = stubEl(name + " " + sel);
+      return el.children[sel];
+    },
+    querySelectorAll(sel) { el.queries.push(sel); return el.children[sel] || []; },
+    closest() { return null; },
+    showModal() { el.opened = true; },
+    close() { el.closed = true; }
+  };
+  return el;
+}
+
+const CFG_STUDENTS = [{ academicYear: "2026/2027" }, { academicYear: "2025/2026" }];
+const CFG_DATA = {
+  students: CFG_STUDENTS,
+  config: { activeYear: "2026/2027", dailyTarget: 60, currency: "GH\u20b5" }
+};
+
+// Loads write.js over a fresh fake window; returns the namespace plus the fake document so
+// tests can read what got wired.
+function loadWrite(overrides) {
+  const opts = overrides || {};
+  const doc = {
+    ids: {},
+    all: {},
+    getElementById(id) {
+      if (!doc.ids[id]) doc.ids[id] = stubEl("#" + id);
+      return doc.ids[id];
+    },
+    querySelectorAll(sel) { return doc.all[sel] || []; }
+  };
+  const editButtons = opts.editButtons || [];
+  if (editButtons.length) doc.all["[data-edit-config]"] = editButtons;
+  const closeButtons = opts.closeButtons || [];
+  if (closeButtons.length) doc.all["[data-close]"] = closeButtons;
+
+  const cec = Object.assign({
+    viewModels: viewModels,
+    session: { load: () => ({ token: "tok-abc" }) },
+    getAllData: async () => CFG_DATA,
+    refreshAll: async () => { cec.refreshes++; }
+  }, opts.cec);
+  cec.refreshes = 0;
+  const flips = [];
+  let offline = false;
+  Object.defineProperty(cec, "forceOffline", {
+    get: () => offline,
+    set: v => { flips.push(!!v); offline = !!v; },
+    configurable: true
+  });
+
+  const fetchCalls = [];
+  const fetchStub = async (url, o) => {
+    fetchCalls.push({ url, opts: o });
+    const res = opts.fetch ? opts.fetch(url, o) : { ok: true, status: 200, body: { ok: true } };
+    return { ok: res.ok, status: res.status, json: async () => res.body };
+  };
+
+  const noopTimer = () => 0;
+  const win = { CEC: cec, setTimeout: noopTimer, clearTimeout: noopTimer };
+  new Function("window", "document", "fetch", "setTimeout", "clearTimeout", WRITE_SRC)(
+    win, doc, fetchStub, noopTimer, noopTimer
+  );
+  return { cec, doc, fetchCalls, flips };
+}
+
+function submitConfig(form, overrides) {
+  const opts = overrides || {};
+  const set = (sel, value) => { form.querySelector(sel).value = value; };
+  set("[data-year]", opts.year);
+  set("[data-target]", opts.target);
+  set("[data-currency]", opts.currency);
+  set("[data-source]", opts.source || "live");
+  const handler = form.listeners.filter(l => l.type === "submit").map(l => l.fn).pop();
+  return handler({ preventDefault() {}, currentTarget: form });
+}
+
+test("write.updateConfig POSTs to api/config with the payload passed through", async () => {
+  const { cec, fetchCalls } = loadWrite();
+  const payload = { academic_year: "2026/2027", daily_payment_target: 60, currency: "GH\u20b5" };
+  await cec.write.updateConfig(payload);
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].url, "api/config", "the write targets the config endpoint");
+  assert.equal(fetchCalls[0].opts.method, "POST");
+  assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), payload, "the payload is passed through untouched");
+  assert.equal(fetchCalls[0].opts.headers.Authorization, "Bearer tok-abc");
+  assert.equal(cec.refreshes, 1, "runAndRefresh repaints from the refreshed snapshot");
+
+  const failing = loadWrite({ fetch: () => ({ ok: false, status: 400, body: { ok: false, error: "Config tab missing or header mismatch." } }) });
+  await assert.rejects(failing.cec.write.updateConfig(payload), /header mismatch/);
+  assert.equal(failing.cec.refreshes, 1, "O7: the snapshot still repaints after a failed POST");
+});
+
+test("O2/AC6: a shape-valid year outside availableYears is rejected before the POST", () => {
+  const { cec } = loadWrite();
+  const draft = { target: "60", currency: "GH\u20b5", source: "live" };
+  const rejected = cec.configForm.validate(Object.assign({}, draft, { year: "2019/2020" }), CFG_DATA);
+  assert.equal(rejected.ok, false, "a format-valid but absent year must not be accepted");
+  assert.match(rejected.error, /2019\/2020/, "the inline error names the offending year");
+  const accepted = cec.configForm.validate(Object.assign({}, draft, { year: "2025/2026" }), CFG_DATA);
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.payload, { academic_year: "2025/2026", daily_payment_target: 60, currency: "GH\u20b5" });
+  assert.equal(accepted.source, "live");
+  assert.equal(cec.configForm.validate(Object.assign({}, draft, { year: "" }), CFG_DATA).ok, false);
+  assert.equal(cec.configForm.validate(Object.assign({}, draft, { year: "2026" }), CFG_DATA).ok, false, "a shape-valid year is not the only requirement");
+});
+
+test("O2/AC6: an empty, NaN or negative daily target is rejected client-side", () => {
+  const { cec } = loadWrite();
+  const base = { year: "2026/2027", currency: "GH\u20b5", source: "live" };
+  // Number("") and Number(null) are both 0, which would silently write a zero target.
+  for (const target of ["", "   ", null, undefined, "abc", NaN, "-1", -1]) {
+    const r = cec.configForm.validate(Object.assign({}, base, { target }), CFG_DATA);
+    assert.equal(r.ok, false, JSON.stringify(String(target)) + " is not a usable target");
+    assert.match(r.error, /target/i);
+  }
+  assert.equal(cec.configForm.validate(Object.assign({}, base, { target: "0" }), CFG_DATA).ok, true, "0 stays a legal target");
+  assert.equal(cec.configForm.validate(Object.assign({}, base, { target: 60, currency: "" }), CFG_DATA).ok, false, "empty currency is rejected");
+  assert.equal(cec.configForm.validate(Object.assign({}, base, { target: 60, currency: "GHS-1234567" }), CFG_DATA).ok, false, "currency over 10 chars is rejected");
+  assert.equal(cec.configForm.validate(Object.assign({}, base, { target: 60, source: "bogus" }), CFG_DATA).ok, false, "only live/offline are data sources");
+});
+
+test("O7: the data-source flag flips only after a successful save", () => {
+  const { cec } = loadWrite();
+  const failed = cec.configForm.applyResult({ ok: false, error: "Config tab missing or header mismatch." }, "offline", v => cec.forceOffline = v);
+  assert.equal(failed.applied, false);
+  assert.equal(failed.error, "Config tab missing or header mismatch.");
+  let seen = null;
+  cec.configForm.applyResult({ ok: false, error: "boom" }, "offline", v => { seen = v; });
+  assert.equal(seen, null, "a failed save never calls the local setter");
+  cec.configForm.applyResult({ ok: true }, "offline", v => { seen = v; });
+  assert.equal(seen, true, "source offline persists an offline browser");
+  cec.configForm.applyResult({ ok: true }, "live", v => { seen = v; });
+  assert.equal(seen, false, "source live persists a live browser");
+  assert.equal(cec.configForm.applyResult(null, "offline", () => { seen = "called"; }).applied, false);
+  assert.equal(seen, false, "a missing result is treated as a failure, not a save");
+});
+
+test("the Settings Edit buttons open dlgConfig pre-filled from the config row and forceOffline", async () => {
+  const editButtons = [stubEl("edit1"), stubEl("edit2"), stubEl("edit3"), stubEl("edit4")];
+  const closeButtons = [stubEl("close1")];
+  const { cec, doc } = loadWrite({ editButtons, closeButtons });
+  for (const btn of editButtons) assert.equal(btn.hasListener("click"), true, "every Edit button is wired");
+  assert.equal(closeButtons[0].hasListener("click"), true, "the modal close control is wired");
+  assert.ok(doc.ids.dlgConfig, "#dlgConfig is the registered dialog element");
+  const form = doc.ids.dlgConfig;
+
+  await editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  for (const sel of ["[data-year]", "[data-target]", "[data-currency]", "[data-source]", "[data-error]"]) {
+    assert.ok(form.queries.indexOf(sel) !== -1, "dlgConfig binds " + sel);
+  }
+  assert.equal(form.hasListener("submit"), true, "dlgConfig form submits through the module");
+  assert.equal(form.opened, true, "the dialog opens");
+  assert.equal(form.children["[data-year]"].value, "2026/2027", "year prefilled from config.activeYear");
+  assert.equal(form.children["[data-target]"].value, "60", "target prefilled from config.dailyTarget");
+  assert.equal(form.children["[data-currency]"].value, "GH\u20b5");
+  assert.equal(form.children["[data-source]"].value, "live", "a live browser prefills the live source");
+  cec.forceOffline = true;
+  await editButtons[0].listeners.filter(l => l.type === "click").map(l => l.fn).pop()();
+  assert.equal(form.children["[data-source]"].value, "offline", "an offline browser prefills the offline source");
+  assert.equal(form.children["[data-error]"].hidden, true, "a stale inline error is cleared on open");
+});
+
+test("submitting dlgConfig validates before POST, then saves and applies the source", async () => {
+  const editButtons = [stubEl("edit")];
+  const { cec, doc, fetchCalls, flips } = loadWrite({ editButtons });
+  const form = doc.ids.dlgConfig;
+
+  await submitConfig(form, { year: "2019/2020", target: "60", currency: "GH\u20b5" });
+  assert.equal(fetchCalls.length, 0, "an out-of-set year never reaches the network");
+  assert.equal(form.children["[data-error]"].hidden, false);
+  assert.match(form.children["[data-error]"].textContent, /2019\/2020/);
+
+  await submitConfig(form, { year: "2026/2027", target: "", currency: "GH\u20b5" });
+  assert.equal(fetchCalls.length, 0, "an empty target never reaches the network");
+  assert.match(form.children["[data-error]"].textContent, /target/i);
+
+  await submitConfig(form, { year: "2026/2027", target: "70", currency: "GH\u20b5", source: "offline" });
+  assert.equal(fetchCalls.length, 1);
+  assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), { academic_year: "2026/2027", daily_payment_target: 70, currency: "GH\u20b5" });
+  assert.equal(form.closed, true, "the modal closes after a good save");
+  assert.equal(doc.ids.toast.textContent, "Settings updated.");
+  assert.deepEqual(flips, [true], "the offline source is applied only after the write succeeded");
+  assert.equal(cec.refreshes, 1, "the Settings cards repaint from the refreshed snapshot");
+});
+
+test("O7: a failed config POST shows the error, keeps the modal open and flips nothing locally", async () => {
+  const { doc, fetchCalls, flips } = loadWrite({
+    fetch: () => ({ ok: false, status: 400, body: { ok: false, error: "Config tab missing or header mismatch." } })
+  });
+  const form = doc.ids.dlgConfig;
+  await submitConfig(form, { year: "2026/2027", target: "70", currency: "GH\u20b5", source: "offline" });
+  assert.equal(fetchCalls.length, 1, "the write is attempted");
+  assert.equal(form.closed, undefined, "the modal stays open on failure");
+  assert.equal(form.children["[data-error]"].hidden, false);
+  assert.match(form.children["[data-error]"].textContent, /header mismatch/);
+  assert.equal(form.children["[data-submit]"].disabled, false, "the submit button is re-enabled");
+  assert.deepEqual(flips, [], "no partial save: the local data source never flipped");
+});
+
+test("index.html ships four Settings Edit buttons and a hole-free #dlgConfig", () => {
+  const settings = INDEX_HTML.slice(
+    INDEX_HTML.indexOf('id="page-settings"'),
+    INDEX_HTML.indexOf('id="dlgPayment"')
+  );
+  assert.notEqual(settings, "", "the Settings page still exists");
+  assert.equal((settings.match(/data-edit-config/g) || []).length, 4, "one Edit button per Settings panel");
+  assert.equal((settings.match(/class="btn btn-light"/g) || []).length, 4, "the Edit buttons use the shared light button style");
+  for (const id of ["settingsYear", "settingsTarget", "settingsCurrency", "settingsStatus"]) {
+    assert.ok(settings.indexOf('id="' + id + '"') !== -1, id + " panel is still rendered");
+  }
+  assert.equal(/data-edit-config[^>]*type="button"/.test(settings) || /type="button"[^>]*data-edit-config/.test(settings), true,
+    "the Edit buttons declare type=button so they never submit an outer form");
+
+  const dlgStart = INDEX_HTML.indexOf('<dialog class="modal" id="dlgConfig">');
+  assert.notEqual(dlgStart, -1, "#dlgConfig exists");
+  assert.ok(dlgStart > INDEX_HTML.indexOf('id="dlgStock"'), "#dlgConfig comes after #dlgStock");
+  const dlg = INDEX_HTML.slice(dlgStart, INDEX_HTML.indexOf("</dialog>", dlgStart));
+  assert.ok(dlg.indexOf("<h3>System settings</h3>") !== -1, "the modal head is titled");
+  assert.ok(dlg.indexOf("data-close") !== -1, "the modal can be closed");
+  assert.ok(/<input type="text" data-year/.test(dlg), "[data-year] is a text input");
+  assert.ok(/<input type="number" data-target min="0"/.test(dlg), "[data-target] is a non-negative number input");
+  assert.ok(/<input type="text" data-currency placeholder="GH\u20b5"/.test(dlg), "[data-currency] is a text input with the GH\u20b5 placeholder");
+  assert.ok(/<select data-source>/.test(dlg) && /<option value="live">/.test(dlg) && /<option value="offline">/.test(dlg),
+    "[data-source] offers exactly live and offline");
+  assert.ok(/data-submit/.test(dlg), "the modal has a submit control");
+  assert.ok(/data-error hidden/.test(dlg), "the modal has an inline error slot");
+  assert.equal(/required/.test(dlg), false, "no native validation: the dialog's own inline errors are the feedback path");
+});
+
 test("createClient.sheetsAddTab posts an addSheet batchUpdate request", async () => {
   const calls = [];
   const fake = makeFakeFetch([
