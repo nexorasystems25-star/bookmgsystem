@@ -375,13 +375,12 @@
           const qty = sizeQty - got;
           if (qty <= 0) return;
           const stock = Number(book.stockQty) || 0;
-          if (stock < qty) return;
           const price = Number(book.price) || 0;
           if (!(price > 0)) return;
           const cost = qty * price;
           if (cost > budget) return;
           budget -= cost;
-          remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: false });
+          remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: stock < qty });
         });
       }
     }
@@ -389,9 +388,10 @@
       (books || []).forEach(b => {
         if (isExerciseBook(b)) return;
         if (classKey(b.category) !== target) return;
-        if (!(Number(b.price) > 0) || Number(b.price) > budget) return;
-        if (!(Number(b.stockQty) > 0)) return;
         if (issued[b.bookId]) return;
+        const price = Number(b.price) || 0;
+        if (!(price > 0) || price > budget) return;
+        budget -= price;
         remaining.push({ book: b, qty: 1, kind: "textbook" });
       });
     }
