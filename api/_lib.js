@@ -370,6 +370,21 @@ async function loadClassFeeSizes(client, spreadsheetId, className) {
   return {};
 }
 
+function entitledExbookSizeNames(sizes, exbooks) {
+  const total = Number(exbooks) || 0;
+  if (!(total > 0)) return [];
+  const names = [];
+  let covered = 0;
+  CLASS_FEE_SIZE_COLUMNS.forEach(name => {
+    if (covered >= total) return;
+    const qty = Number((sizes && sizes[name]) || 0);
+    if (!(qty > 0)) return;
+    names.push(name);
+    covered += qty;
+  });
+  return names;
+}
+
 function issuedQuantityByStudent(rows, studentId) {
   const out = {};
   const headers = ((rows && rows[0]) || []).map(h => String(h || "").trim());
@@ -434,7 +449,9 @@ async function runIssue(client, spreadsheetId, payload) {
   if (!foundStudent) return { ok: false, error: "student_id not found" };
   const studentRow = students[foundStudent.rowIndex - 1];
   const studentName = studentRow[1];
+  const studentExbooks = Number(studentRow[8]) || 0;
   const classSizes = await loadClassFeeSizes(client, spreadsheetId, studentRow[2]);
+  const entitledNames = Object.keys(classSizes).length ? entitledExbookSizeNames(classSizes, studentExbooks) : null;
   const issuedRows = await client.sheetsGet(spreadsheetId, "Issued!A:F");
   const alreadyReceived = issuedQuantityByStudent(issuedRows, payload.student_id);
 
@@ -451,6 +468,9 @@ async function runIssue(client, spreadsheetId, payload) {
     const stockQty = cellNum(bookRow[5]);
     const category = String(bookRow[3] || "").trim();
     const sizeName = CLASS_FEE_SIZE_COLUMNS.find(name => name.toLowerCase() === category.toLowerCase());
+    if (sizeName && entitledNames && entitledNames.indexOf(sizeName) === -1) {
+      return { ok: false, error: req.book_id + " is not part of " + studentName + "'s registered exercise books (exbooks " + studentExbooks + ")" };
+    }
     const required = sizeName ? (Number(classSizes[sizeName]) || 0) : 1;
     if (required > 0) {
       const received = alreadyReceived[req.book_id] || 0;

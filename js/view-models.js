@@ -277,6 +277,22 @@
     });
   }
 
+  function entitledExbookSizeNames(student, feesRow) {
+    const total = Number((student && student.exbooks) || 0);
+    if (!(total > 0)) return [];
+    const sizes = (feesRow && feesRow.sizes) || {};
+    const names = [];
+    let covered = 0;
+    Object.keys(sizes).forEach(name => {
+      if (covered >= total) return;
+      const qty = Number(sizes[name] || 0);
+      if (!(qty > 0)) return;
+      names.push(name);
+      covered += qty;
+    });
+    return names;
+  }
+
   function issueEligibleExBooks(books, student, activity, classFees) {
     if (!student || !(Number(student.exbooks) > 0)) return [];
     const target = classKey(student.className);
@@ -285,9 +301,8 @@
     if (!feesRow || !feesRow.sizes) return [];
     const received = issuedBooks(activity, student);
     const out = [];
-    Object.keys(feesRow.sizes).forEach(sizeName => {
+    entitledExbookSizeNames(student, feesRow).forEach(sizeName => {
       const qty = feesRow.sizes[sizeName];
-      if (!(qty > 0)) return;
       const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
       if (!book) return;
       const got = received[book.bookId] || 0;
@@ -358,9 +373,8 @@
     if ((mode === "ExBooks" || mode === "Both") && target) {
       const feesRow = (classFees || []).find(f => classKey(f.className) === target);
       if (feesRow && feesRow.sizes) {
-        Object.keys(feesRow.sizes).forEach(sizeName => {
+        entitledExbookSizeNames(student, feesRow).forEach(sizeName => {
           const sizeQty = Number(feesRow.sizes[sizeName] || 0);
-          if (!(sizeQty > 0)) return;
           const book = (books || []).find(b => isExerciseBook(b) && classKey(b.category) === classKey(sizeName));
           if (!book) return;
           const got = Number(issued[book.bookId] || 0);
