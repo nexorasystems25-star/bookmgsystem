@@ -453,6 +453,7 @@
       activity: dataset.activity || [],
       books: dataset.books || [],
       classFees: dataset.classFees || [],
+      issued: dataset.issued || [],
       config: dataset.config || {},
       offline: dataset.offline,
       lastSynced: dataset.lastSynced
