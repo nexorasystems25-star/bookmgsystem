@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const csv = require("../js/csv.js");
 const xlsx = require("../js/xlsx.js");
 
@@ -963,6 +965,87 @@ test("api/config surfaces the runConfig header guard as a 400 without writing", 
   assert.equal(res.statusCode, 400, "a header-guard refusal is a 400, not a 500");
   assert.deepEqual(res.body, { ok: false, error: "Config tab missing or header mismatch." });
   assert.equal(client.calls.length, 0, "no write was attempted");
+});
+
+// js/data-access.js is a browser IIFE with no module.exports, so it is evaluated fresh per
+// test against a fake `window` instead of being required (the flag lives in a per-load
+// closure). Storage globals are installed only for the block that needs them; names left
+// out are deleted, so the "no storage at all" harness path stays honest.
+const DATA_ACCESS_SRC = fs.readFileSync(path.join(__dirname, "..", "js", "data-access.js"), "utf8");
+
+function loadDataAccess() {
+  const win = {};
+  new Function("window", DATA_ACCESS_SRC)(win);
+  return win.CEC;
+}
+
+function storageShim(initial) {
+  const store = {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+  };
+  return Object.assign(store, initial);
+}
+
+function withStorage(provided, fn) {
+  const names = ["localStorage", "sessionStorage"];
+  const saved = {};
+  for (const n of names) {
+    saved[n] = globalThis[n];
+    if (provided[n] === undefined) delete globalThis[n];
+    else globalThis[n] = provided[n];
+  }
+  try {
+    return fn();
+  } finally {
+    for (const n of names) {
+      if (saved[n] === undefined) delete globalThis[n];
+      else globalThis[n] = saved[n];
+    }
+  }
+}
+
+test("CEC.forceOffline round-trips in memory when no storage globals exist", () => {
+  withStorage({}, () => {
+    const cec = loadDataAccess();
+    assert.equal(cec.forceOffline, false);
+    cec.forceOffline = true;
+    assert.equal(cec.forceOffline, true, "the in-memory flag drives the getter with no storage");
+    cec.forceOffline = false;
+    assert.equal(cec.forceOffline, false);
+  });
+});
+
+test("CEC.forceOffline persists cecForceOffline in localStorage and removes it on false", () => {
+  const local = storageShim();
+  withStorage({ localStorage: local }, () => {
+    const cec = loadDataAccess();
+    cec.forceOffline = true;
+    assert.equal(local.cecForceOffline, "true", "true is persisted to localStorage");
+    cec.forceOffline = false;
+    assert.equal(local.cecForceOffline, undefined, "false removes the localStorage key");
+  });
+});
+
+test("O6: a legacy sessionStorage cecForceOffline migrates into localStorage on init", () => {
+  const local = storageShim();
+  const session = storageShim({ cecForceOffline: "true" });
+  withStorage({ localStorage: local, sessionStorage: session }, () => {
+    const cec = loadDataAccess();
+    assert.equal(local.cecForceOffline, "true", "legacy offline flag is written through to localStorage");
+    assert.equal(cec.forceOffline, true, "the migrated flag is live in this load, not just the next one");
+  });
+});
+
+test("O6: init writes nothing to localStorage when the legacy sessionStorage key is absent", () => {
+  const local = storageShim();
+  const session = storageShim();
+  withStorage({ localStorage: local, sessionStorage: session }, () => {
+    const cec = loadDataAccess();
+    assert.equal(cec.forceOffline, false);
+    assert.equal(local.cecForceOffline, undefined, "no migration write-through without a legacy key");
+  });
 });
 
 test("createClient.sheetsAddTab posts an addSheet batchUpdate request", async () => {

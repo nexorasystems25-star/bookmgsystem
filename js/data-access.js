@@ -157,17 +157,25 @@
 
   let forceOfflineFlag = false;
   try {
-    forceOfflineFlag =
+    if (
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("cecForceOffline") === null &&
       typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem("cecForceOffline") === "true";
+      sessionStorage.getItem("cecForceOffline") === "true"
+    ) {
+      localStorage.setItem("cecForceOffline", "true");
+    }
+    forceOfflineFlag =
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("cecForceOffline") === "true";
   } catch (ignored) {}
 
   function setForceOffline(v) {
     forceOfflineFlag = !!v;
     try {
-      if (typeof sessionStorage !== "undefined") {
-        if (forceOfflineFlag) sessionStorage.setItem("cecForceOffline", "true");
-        else sessionStorage.removeItem("cecForceOffline");
+      if (typeof localStorage !== "undefined") {
+        if (forceOfflineFlag) localStorage.setItem("cecForceOffline", "true");
+        else localStorage.removeItem("cecForceOffline");
       }
     } catch (ignored) {}
   }
