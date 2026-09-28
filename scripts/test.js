@@ -654,7 +654,7 @@ test("runIssue caps an issue at the remaining entitlement from ClassFees", async
   assert.deepEqual(issuedCall.rows[0].slice(0, 4), ["I002", "S001", "B075", "2"]);
 });
 
-test("runIssue rejects an exercise book the paid budget cannot cover whole-type (no writes)", async () => {
+test("runIssue issues to any student who has paid, and rejects a zero-paid student (no writes)", async () => {
   const fees = [["class", "books_fee", "exbooks", "A1 Small", "D1 Small", "C Small", "G Small", "A1 Big", "D1 Big", "Exercise Book"], ["BS 1A", "1200", "20", "5", "5", "4", "4", "12", "12", "10"]];
   const books = [["book_id", "publisher", "subject", "category", "price", "stock_qty", "low_stock_threshold"], ["B077", "Exercise Book", "Writing Exercise Book C", "C Small", "2.5", "20", "5"]];
   const unit = (paid) => ({
@@ -663,15 +663,15 @@ test("runIssue rejects an exercise book the paid budget cannot cover whole-type 
     "Books!A:I": books,
     "Activity!A:A": [["activity_id"], ["A006"]]
   });
-  const poor = makeFakeClient(unit("8"));
-  const r = await lib.runIssue(poor, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /paid budget/);
-  assert.equal(poor.calls.length, 0, "no writes happened");
-  const solvent = makeFakeClient(unit("10"));
-  const ok = await lib.runIssue(solvent, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
-  assert.equal(ok.ok, true);
-  assert.equal(ok.row.stock_qty, 19);
+  const unpaid = makeFakeClient(unit("0"));
+  const u = await lib.runIssue(unpaid, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
+  assert.equal(u.ok, false);
+  assert.match(u.error, /paid/);
+  assert.equal(unpaid.calls.length, 0, "no writes happened before the paid check passes");
+  const partial = makeFakeClient(unit("8"));
+  const r = await lib.runIssue(partial, "spr", { student_id: "S001", book_id: "B077", qty: 1 });
+  assert.equal(r.ok, true, "an 8 paid student can receive an exercise book worth more than their balance");
+  assert.equal(r.row.stock_qty, 19);
 });
 
 test("runIssue applies per-item quantities from a mixed books array", async () => {
@@ -1242,6 +1242,34 @@ test("write.updateConfig POSTs to api/config with the payload passed through", a
   assert.equal(failing.cec.refreshes, 1, "O7: the snapshot still repaints after a failed POST");
 });
 
+test("write.studentLookup.filter matches name, class or id; empty query returns all", () => {
+  const { cec } = loadWrite();
+  const students = [
+    { studentId: "S001", name: "Abena Mensah", className: "Nursery 1" },
+    { studentId: "S002", name: "Kwame Ansah", className: "KG 1" },
+    { studentId: "S003", name: "Ama Serwaa", className: "BS 2" }
+  ];
+  assert.equal(cec.studentLookup.filter(students, "").length, 3);
+  assert.equal(cec.studentLookup.filter(students, "  ").length, 3);
+  assert.deepEqual(cec.studentLookup.filter(students, "abena").map(s => s.studentId), ["S001"]);
+  assert.deepEqual(cec.studentLookup.filter(students, "kg 1").map(s => s.studentId), ["S002"]);
+  assert.deepEqual(cec.studentLookup.filter(students, "S003").map(s => s.studentId), ["S003"]);
+  assert.deepEqual(cec.studentLookup.filter(students, "zzz"), []);
+  assert.deepEqual(cec.studentLookup.filter(undefined, "x"), []);
+});
+
+test("write binds a type-ahead student combobox in the Payment and Issue dialogs", () => {
+  const { doc } = loadWrite();
+  ["dlgPayment", "dlgIssue"].forEach(id => {
+    const dlg = doc.getElementById(id);
+    const input = dlg.querySelector("[data-student-input]");
+    assert.equal(input.hasListener("input"), true, id + " filters as you type");
+    assert.equal(input.hasListener("keydown"), true, id + " handles arrow/enter/escape keys");
+    assert.equal(dlg.querySelector("[data-student-list]").hasListener("mousedown"), true, id + " commits by pointer");
+  });
+  assert.equal(doc.getElementById("dlgIssue").querySelector("[data-student]").hasListener("change"), true, "issue books re-render once a student is committed");
+});
+
 test("O2/AC6: a shape-valid year outside availableYears is rejected before the POST", () => {
   const { cec } = loadWrite();
   const draft = { target: "60", currency: "GH\u20b5", source: "live" };
@@ -1610,7 +1638,7 @@ test("viewModels.issuedBookIds parses issue tokens per student", () => {
   assert.deepEqual(vm.issuedBookIds([], { name: "Abena Mensah" }), []);
 });
 
-test("viewModels.issueEligibleBooks filters by class, price <= paid, stock, and issued", () => {
+test("viewModels.issueEligibleBooks filters by class, any paid balance, stock, and issued", () => {
   const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 200 };
   const books = [
     { bookId: "B1", category: "KG 1", price: 70, stockQty: 5, publisher: "GES" },
@@ -1622,7 +1650,7 @@ test("viewModels.issueEligibleBooks filters by class, price <= paid, stock, and 
   ];
   const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B6]" }];
   const got = vm.issueEligibleBooks(books, student, activity);
-  assert.deepEqual(got.map(b => b.bookId), ["B1"]);
+  assert.deepEqual(got.map(b => b.bookId), ["B1", "B2"], "a book above the paid balance is still offerable once the student has paid anything");
 });
 
 test("viewModels.issueEligibleBooks returns empty for missing class or zero paid", () => {
@@ -1688,7 +1716,7 @@ test("viewModels.issueEligibleExBooks matches abbreviated Nursery class labels (
   assert.deepEqual(got.map(x => x.book.bookId), ["B075"]);
 });
 
-test("viewModels.issueEligibleExBooks spends the paid budget on in-stock sizes whole-type in class order", () => {
+test("viewModels.issueEligibleExBooks offers every in-stock size once the student has paid anything", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 20, sizes: { "A1 Small": 5, "D1 Small": 5, "C Small": 5, "G Small": 5 } }];
   const books = [
     { bookId: "B075", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
@@ -1696,11 +1724,11 @@ test("viewModels.issueEligibleExBooks spends the paid budget on in-stock sizes w
     { bookId: "B077", category: "C Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
     { bookId: "B079", category: "G Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
+  const allSizes = ["B075", "B078", "B077", "B079"];
   const base = { className: "Nursery 1", exbooks: 20 };
-  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 0 }), [], classFees), []);
-  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 12.5 }), [], classFees).map(x => x.book.bookId), ["B075"]);
-  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 25 }), [], classFees).map(x => x.book.bookId), ["B075", "B078"]);
-  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 50 }), [], classFees).map(x => x.book.bookId), ["B075", "B078", "B077", "B079"]);
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 0 }), [], classFees), [], "a student who paid nothing gets nothing");
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 12.5 }), [], classFees).map(x => x.book.bookId), allSizes, "a small payment still makes every in-stock size offerable (no whole-type budget)");
+  assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 5 }), [], classFees).map(x => x.book.bookId), allSizes);
 });
 
 test("viewModels.issuedBooks sums xN quantities across issue entries", () => {

@@ -434,6 +434,9 @@ async function runIssue(client, spreadsheetId, payload) {
   if (!foundStudent) return { ok: false, error: "student_id not found" };
   const studentRow = students[foundStudent.rowIndex - 1];
   const studentName = studentRow[1];
+  if (!(cellNum(studentRow[6]) > 0)) {
+    return { ok: false, error: studentName + " has not paid for books yet — record a payment before issuing." };
+  }
   const classSizes = await loadClassFeeSizes(client, spreadsheetId, studentRow[2]);
   const issuedRows = await client.sheetsGet(spreadsheetId, "Issued!A:F");
   const alreadyReceived = issuedQuantityByStudent(issuedRows, payload.student_id);
@@ -443,13 +446,6 @@ async function runIssue(client, spreadsheetId, payload) {
     : [{ book_id: payload.book_id, qty: payload.qty }];
 
   const books = await client.sheetsGet(spreadsheetId, "Books!A:I");
-  const priceByBook = {};
-  for (let i = 1; i < (books || []).length; i++) {
-    const bid = String(books[i][0] || "").trim();
-    const p = cellNum(books[i][4]);
-    if (bid && p > 0) priceByBook[bid] = p;
-  }
-  let budget = cellNum(studentRow[6]) - Object.keys(alreadyReceived).reduce((sum, bid) => sum + (alreadyReceived[bid] || 0) * (priceByBook[bid] || 0), 0);
   const resolved = [];
   for (const req of requests) {
     const foundBook = findRowIndex(books, "book_id", req.book_id);
@@ -467,13 +463,6 @@ async function runIssue(client, spreadsheetId, payload) {
       }
       if (req.qty > remaining) {
         return { ok: false, error: "cannot issue " + req.qty + " of " + bookRow[2] + ": only " + remaining + " of the required " + required + " remains for this student" };
-      }
-      if (sizeName && Object.keys(classSizes).length) {
-        const cost = remaining * (priceByBook[req.book_id] || 0);
-        if (cost > budget) {
-          return { ok: false, error: req.book_id + " exceeds " + studentName + "'s remaining paid budget (needs " + cost + " from " + budget + ")" };
-        }
-        budget -= cost;
       }
     }
     if (req.qty > stockQty) return { ok: false, error: "insufficient stock for " + bookRow[2] + ": only " + stockQty + " available" };

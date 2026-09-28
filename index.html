@@ -432,7 +432,11 @@
     <form method="dialog">
       <div class="modal-head"><h3>Record payment</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
       <div class="modal-body">
-        <label>Student<select data-student required></select></label>
+        <label>Student<div class="combo" data-student-combo>
+          <input type="text" class="combo-input" data-student-input placeholder="Type to search students…" autocomplete="off">
+          <select data-student required hidden></select>
+          <ul class="combo-list" data-student-list hidden></ul>
+        </div></label>
         <label>Amount (GHS)<input type="number" data-amount min="0.01" step="0.01" required></label>
         <label>Method<select data-method>
           <option value="Cash">Cash</option>
@@ -480,8 +484,12 @@
     <form method="dialog">
       <div class="modal-head"><h3>Issue books</h3><button type="button" class="modal-close" data-close aria-label="Close">×</button></div>
       <div class="modal-body">
-        <label>Student<select data-student required></select></label>
-        <label>Books<small>Class books within the paid amount that are in stock. Tick the ones to issue.</small><div class="book-list" data-books><p class="empty-note">Select a student to see their available books.</p></div></label>
+        <label>Student<div class="combo" data-student-combo>
+          <input type="text" class="combo-input" data-student-input placeholder="Type to search students…" autocomplete="off">
+          <select data-student required hidden></select>
+          <ul class="combo-list" data-student-list hidden></ul>
+        </div></label>
+        <label>Books<small>Class books that are in stock. Tick the ones to issue.</small><div class="book-list" data-books><p class="empty-note">Select a student to see their available books.</p></div></label>
         <p class="modal-error" data-error hidden></p>
       </div>
       <div class="modal-foot">

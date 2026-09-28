@@ -80,6 +80,24 @@ button{cursor:pointer}
   outline: 2px solid #2f6fed; outline-offset: -1px; border-color: #2f6fed;
 }
 .modal-error { margin: 0; color: #b42318; font-size: 13px; font-weight: 500; }
+.combo { position: relative; }
+.combo > [hidden] { display: none; }
+.combo-input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cfd9e8; border-radius: 6px; font-size: 14px; background: #fff; }
+.combo-input:focus { outline: 2px solid #2f6fed; outline-offset: -1px; border-color: #2f6fed; }
+.combo-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+  list-style: none; margin: 0; padding: 4px;
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid #cfd9e8; border-radius: 6px; background: #fff;
+  box-shadow: 0 6px 18px rgba(16, 38, 66, 0.14);
+}
+.combo-option {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 7px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; color: #1c2b44;
+}
+.combo-option.active, .combo-option:hover { background: #eef4ff; }
+.combo-option .combo-class { color: #5a6b85; font-size: 12px; font-weight: 400; white-space: nowrap; }
+.combo-empty { padding: 8px; color: #5a6b85; font-size: 13px; }
 .book-list {
   max-height: 220px; overflow-y: auto;
   border: 1px solid #cfd9e8; border-radius: 6px; padding: 4px 10px; background: #fff;

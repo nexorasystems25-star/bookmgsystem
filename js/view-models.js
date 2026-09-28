@@ -271,33 +271,20 @@
     return (books || []).filter(b => {
       if (isExerciseBook(b)) return false;
       if (classKey(b.category) !== target) return false;
-      if (!(Number(b.price) > 0) || Number(b.price) > paid) return false;
+      if (!(Number(b.price) > 0)) return false;
       if (!(Number(b.stockQty) > 0)) return false;
       return issued.indexOf(b.bookId) === -1;
     });
   }
 
-  function collectedCost(issued, books) {
-    const priceById = {};
-    (books || []).forEach(b => {
-      const p = Number(b.price) || 0;
-      if (p > 0) priceById[b.bookId] = p;
-    });
-    let cost = 0;
-    Object.keys(issued || {}).forEach(id => {
-      cost += (issued[id] || 0) * (priceById[id] || 0);
-    });
-    return cost;
-  }
-
   function issueEligibleExBooks(books, student, activity, classFees) {
     if (!student || !(Number(student.exbooks) > 0)) return [];
+    if (!(Number((student && student.booksPaid) || 0) > 0)) return [];
     const target = classKey(student.className);
     if (!target) return [];
     const feesRow = (classFees || []).find(f => classKey(f.className) === target);
     if (!feesRow || !feesRow.sizes) return [];
     const received = issuedBooks(activity, student);
-    let budget = Number((student && student.booksPaid) || 0) - collectedCost(received, books);
     const out = [];
     Object.keys(feesRow.sizes).forEach(sizeName => {
       const qty = Number(feesRow.sizes[sizeName] || 0);
@@ -310,9 +297,6 @@
       if (stock < remaining) return;
       const price = Number(book.price) || 0;
       if (!(price > 0)) return;
-      const cost = remaining * price;
-      if (cost > budget) return;
-      budget -= cost;
       out.push({ book: book, qty: remaining, required: qty, stock: stock });
     });
     return out;

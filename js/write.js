@@ -7,6 +7,18 @@
   const GENDERS = ["male", "female"];
   const CONFIG_SOURCES = ["live", "offline"];
 
+  // Pure combobox filter, kept outside the DOM so the write bindings stay testable.
+  function filterStudents(students, query) {
+    const q = String(query == null ? "" : query).trim().toLowerCase();
+    if (!q) return (students || []).slice();
+    return (students || []).filter(s => s && (
+      String(s.name || "").toLowerCase().indexOf(q) !== -1 ||
+      String(s.className || "").toLowerCase().indexOf(q) !== -1 ||
+      String(s.studentId || "").toLowerCase().indexOf(q) !== -1
+    ));
+  }
+  root.studentLookup = { filter: filterStudents };
+
   async function post(op, body) {
     const headers = { "Content-Type": "application/json" };
     const s = root.session && root.session.load();
@@ -88,6 +100,7 @@
 
   let studentBooks = [];
   let studentFees = [];
+  let paymentStudents = [];
   let issueOpts = null;
   let stockOpts = null;
   let stockMode = "textbook";
@@ -161,10 +174,12 @@
       fillClassFields(classSel.value);
     }
     if (name === "payment") {
+      paymentStudents = opts.students;
       const studentSel = dialogs.payment.querySelector("[data-student]");
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
         .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
         .join("");
+      resetStudentCombo(dialogs.payment);
     }
     if (name === "issue") {
       issueOpts = opts;
@@ -172,6 +187,7 @@
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
         .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
         .join("");
+      resetStudentCombo(dialogs.issue);
       renderIssueBooks("");
     }
     if (name === "stock") {
@@ -348,6 +364,97 @@
   dialogs.issue.querySelector("[data-student]").addEventListener("change", e => {
     renderIssueBooks(e.currentTarget.value);
   });
+
+  function comboStudents(dlg) {
+    if (dlg === dialogs.payment) return paymentStudents;
+    return issueOpts ? issueOpts.students : [];
+  }
+
+  function resetStudentCombo(dlg) {
+    const input = dlg.querySelector("[data-student-input]");
+    const list = dlg.querySelector("[data-student-list]");
+    if (input) input.value = "";
+    if (list) { list.innerHTML = ""; list.hidden = true; }
+  }
+
+  function renderStudentList(dlg, query, active) {
+    const list = dlg.querySelector("[data-student-list]");
+    if (!list || !comboStudents(dlg).length) return;
+    const matches = filterStudents(comboStudents(dlg), query);
+    if (!matches.length) {
+      list.innerHTML = '<li class="combo-empty">No students match.</li>';
+      list.hidden = false;
+      return;
+    }
+    list.innerHTML = matches.map((s, i) =>
+      '<li class="combo-option' + (i === active ? " active" : "") + '" data-student-option data-id="' + esc(s.studentId) + '">' +
+      '<span class="combo-name">' + esc(s.name) + '</span><small class="combo-class">' + esc(s.className) + " · " + esc(s.studentId) + "</small></li>"
+    ).join("");
+    list.hidden = false;
+  }
+
+  function commitStudentOption(dlg, option) {
+    const input = dlg.querySelector("[data-student-input]");
+    const hidden = dlg.querySelector("[data-student]");
+    const list = dlg.querySelector("[data-student-list]");
+    const student = comboStudents(dlg).find(s => s.studentId === option.dataset.id);
+    if (!student) return;
+    hidden.value = student.studentId;
+    if (input) input.value = student.name + " (" + student.className + ")";
+    if (list) { list.innerHTML = ""; list.hidden = true; }
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function bindStudentCombo(name) {
+    const dlg = dialogs[name];
+    if (!dlg) return;
+    const input = dlg.querySelector("[data-student-input]");
+    const list = dlg.querySelector("[data-student-list]");
+    if (!input || !list) return;
+    let active = -1;
+    input.addEventListener("input", () => {
+      active = -1;
+      renderStudentList(dlg, input.value, -1);
+    });
+    input.addEventListener("keydown", e => {
+      const rows = list.hidden ? [] : list.querySelectorAll("[data-student-option]");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (list.hidden) {
+          active = 0;
+          renderStudentList(dlg, input.value, 0);
+        } else if (rows.length) {
+          active = (active + 1) % rows.length;
+          renderStudentList(dlg, input.value, active);
+        }
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!rows.length) return;
+        active = (active - 1 + rows.length) % rows.length;
+        renderStudentList(dlg, input.value, active);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const pick = rows[active >= 0 ? active : 0];
+        if (pick) commitStudentOption(dlg, pick);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (!list.hidden) { list.hidden = true; e.preventDefault(); }
+        return;
+      }
+    });
+    list.addEventListener("mousedown", e => {
+      const option = e.target && e.target.closest ? e.target.closest("[data-student-option]") : null;
+      if (option) { e.preventDefault(); commitStudentOption(dlg, option); }
+    });
+  }
+
+  bindStudentCombo("payment");
+  bindStudentCombo("issue");
 
   dialogs.stock.querySelector("[data-class]").addEventListener("change", e => {
     renderStockBooks(e.currentTarget.value);
