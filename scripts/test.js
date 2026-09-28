@@ -1247,6 +1247,9 @@ function loadWrite(overrides) {
   if (editButtons.length) doc.all["[data-edit-config]"] = editButtons;
   const closeButtons = opts.closeButtons || [];
   if (closeButtons.length) doc.all["[data-close]"] = closeButtons;
+  if (opts.paymentModeChips) {
+    doc.getElementById("dlgPayment").children["[data-new-modes] [data-mode]"] = opts.paymentModeChips;
+  }
 
   const cec = Object.assign({
     viewModels: viewModels,
@@ -1391,6 +1394,56 @@ test("submitting dlgPayment with a NEW student missing a name is rejected before
   assert.equal(fetchCalls.length, 0, "no network call for an incomplete new student");
   assert.equal(form.children["[data-error]"].hidden, false);
   assert.match(form.children["[data-error]"].textContent, /name/i);
+});
+
+test("submitting dlgPayment in Textbooks mode posts exbooks: 0", async () => {
+  const chip = stubEl("textbook chip");
+  chip.dataset.mode = "textbook";
+  const { doc, fetchCalls } = loadWrite({ paymentModeChips: [chip] });
+  const form = doc.ids.dlgPayment;
+  chip.listeners.find(l => l.type === "click").fn();
+  const set = (sel, value) => { form.querySelector(sel).value = value; };
+  set("[data-student]", "NEW");
+  set("[data-amount]", "100");
+  set("[data-method]", "Cash");
+  set("[data-new-name]", "Kojo Amoah");
+  set("[data-new-class]", "KG 1");
+  set("[data-new-gender]", "male");
+  set("[data-new-fee]", "1200");
+  set("[data-new-total]", "8");
+  set("[data-new-exbooks]", "2");
+  const handler = form.listeners.filter(l => l.type === "submit").map(l => l.fn).pop();
+  await handler({ preventDefault() {}, currentTarget: form });
+  assert.equal(fetchCalls.length, 1);
+  const body = JSON.parse(fetchCalls[0].opts.body);
+  assert.equal(body.new_student.exbooks, 0, "Textbooks mode zeroes exercise books");
+  assert.equal(body.new_student.books_total, 8, "textbook total is untouched");
+  assert.equal(body.new_student.books_fee, 1200, "textbook fee is untouched");
+});
+
+test("submitting dlgPayment in ExBooks mode posts books_fee 0 and books_total 0", async () => {
+  const chip = stubEl("exbooks chip");
+  chip.dataset.mode = "exbooks";
+  const { doc, fetchCalls } = loadWrite({ paymentModeChips: [chip] });
+  const form = doc.ids.dlgPayment;
+  chip.listeners.find(l => l.type === "click").fn();
+  const set = (sel, value) => { form.querySelector(sel).value = value; };
+  set("[data-student]", "NEW");
+  set("[data-amount]", "100");
+  set("[data-method]", "Cash");
+  set("[data-new-name]", "Kojo Amoah");
+  set("[data-new-class]", "Small");
+  set("[data-new-gender]", "male");
+  set("[data-new-fee]", "1200");
+  set("[data-new-total]", "8");
+  set("[data-new-exbooks]", "2");
+  const handler = form.listeners.filter(l => l.type === "submit").map(l => l.fn).pop();
+  await handler({ preventDefault() {}, currentTarget: form });
+  assert.equal(fetchCalls.length, 1);
+  const body = JSON.parse(fetchCalls[0].opts.body);
+  assert.equal(body.new_student.books_fee, 0, "ExBooks mode zeroes the textbooks fee");
+  assert.equal(body.new_student.books_total, 0, "ExBooks mode zeroes the textbooks total");
+  assert.equal(body.new_student.exbooks, 2, "exercise books are untouched");
 });
 
 test("index.html ships a NEW-student section inside #dlgPayment", () => {

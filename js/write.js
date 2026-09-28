@@ -129,6 +129,7 @@
   let stockOpts = null;
   let stockMode = "textbook";
   let studentMode = "both";
+  let newStudentMode = "both";
 
   function showError(dlgId, msg) {
     const el = dlgId.querySelector("[data-error]");
@@ -352,6 +353,12 @@
     refreshNewStudentTotals(dialogs.payment);
   });
 
+  dialogs.payment.querySelectorAll("[data-new-modes] [data-mode]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      newStudentMode = btn.dataset.mode === "textbook" || btn.dataset.mode === "exbooks" ? btn.dataset.mode : "both";
+    });
+  });
+
   dialogs.payment.addEventListener("submit", async e => {
     e.preventDefault();
     const dlg = e.currentTarget;
@@ -372,7 +379,13 @@
         exbooks: readValue(dlg, "[data-new-exbooks]")
       });
       if (!checked.ok) return showError(dlg, checked.error);
-      payload.new_student = checked.payload;
+      const q = root.viewModels.purchasePayload(newStudentMode, {
+        fee: checked.payload.books_fee, total: checked.payload.books_total, exbooks: checked.payload.exbooks
+      });
+      payload.new_student = {
+        name: checked.payload.name, class: checked.payload.class, gender: checked.payload.gender,
+        books_fee: q.fee, books_total: q.total, exbooks: q.exbooks
+      };
     }
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
