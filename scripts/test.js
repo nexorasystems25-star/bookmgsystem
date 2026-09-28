@@ -259,6 +259,41 @@ test("validatePaymentPayload rejects bad input", () => {
   assert.equal(lib.validatePaymentPayload({ amount: "10", method: "Cash" }).ok, false);
 });
 
+test("validatePaymentPayload accepts a NEW student with a valid new_student block", () => {
+  const r = lib.validatePaymentPayload({
+    student_id: "NEW", amount: "100", method: "Cash",
+    new_student: { name: "Kojo Amoah", class: "KG 1", gender: "male", books_fee: "1200", books_total: "8", exbooks: "2" }
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.payload.student_id, "NEW");
+  assert.deepEqual(r.payload.newStudent, {
+    name: "Kojo Amoah", className: "KG 1", gender: "male",
+    booksFee: 1200, booksTotal: 8, exbooks: 2, academicYear: "2026/2027"
+  });
+});
+
+test("validatePaymentPayload rejects NEW without new_student and a real id with new_student", () => {
+  assert.equal(lib.validatePaymentPayload({ student_id: "NEW", amount: "10", method: "Cash" }).ok, false,
+    "NEW must come with a new_student block");
+  assert.equal(lib.validatePaymentPayload({
+    student_id: "S001", amount: "10", method: "Cash",
+    new_student: { name: "Kojo", class: "KG 1", gender: "male", books_fee: 1, books_total: 1 }
+  }).ok, false, "an existing student_id cannot carry a new_student block");
+});
+
+test("validatePaymentPayload rejects a malformed new_student block", () => {
+  const base = { student_id: "NEW", amount: "10", method: "Cash" };
+  assert.equal(lib.validatePaymentPayload(Object.assign({}, base, {
+    new_student: { name: "", class: "KG 1", gender: "male", books_fee: 1, books_total: 1 }
+  })).ok, false, "missing name is rejected");
+  assert.equal(lib.validatePaymentPayload(Object.assign({}, base, {
+    new_student: { name: "Kojo", class: "KG 1", gender: "other", books_fee: 1, books_total: 1 }
+  })).ok, false, "gender outside male/female is rejected");
+  assert.equal(lib.validatePaymentPayload(Object.assign({}, base, {
+    new_student: { name: "Kojo", class: "KG 1", gender: "male", books_fee: -1, books_total: 1 }
+  })).ok, false, "a negative books_fee is rejected");
+});
+
 test("validateStudentPayload accepts valid input", () => {
   const r = lib.validateStudentPayload({ name: "Ama Serwaa", class: "JS 1", gender: "female", books_fee: "1400", books_total: "10" });
   assert.equal(r.ok, true);
@@ -562,6 +597,34 @@ test("runPayment rejects missing student", async () => {
   assert.equal(r.ok, false);
   assert.match(r.error, /not found/);
   assert.equal(client.calls.length, 0, "no writes happened");
+});
+
+test("runPayment NEW registers the student, then appends payment + activity", async () => {
+  const stats = lib.recomputeStatus;
+  const client = makeFakeClient({
+    "Students!A:A": [["student_id"],["S025"]],
+    "Payments!A:A": [["payment_id"],["P101"]],
+    "Activity!A:A": [["activity_id"],["A099"]]
+  });
+  const r = await lib.runPayment(client, "spr", {
+    student_id: "NEW", amount: 400, method: "Cash", date: "2026-09-28",
+    newStudent: { name: "Kojo Amoah", className: "KG 1", gender: "male", booksFee: 1200, booksTotal: 8, exbooks: 2, academicYear: "2026/2027" }
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.row.payment_id, "P102", "the payment row gets the next payment id");
+  assert.equal(r.row.student_id, "S026", "the fresh student id is returned as the payment's student");
+  const ops = client.calls;
+  assert.equal(ops[0].op, "append");
+  assert.equal(ops[0].tab, "Students");
+  assert.deepEqual(ops[0].rows[0].slice(0, 10), ["S026","Kojo Amoah","KG 1","male","2026/2027","1200","400","8","2",stats(400, 1200)]);
+  assert.equal(ops[1].op, "append");
+  assert.equal(ops[1].tab, "Payments");
+  assert.deepEqual(ops[1].rows[0].slice(0, 8), ["P102","S026","Kojo Amoah","KG 1","400","Cash","2026-09-28","confirmed"]);
+  assert.equal(ops[2].op, "append");
+  assert.equal(ops[2].tab, "Activity");
+  assert.match(ops[2].rows[0][2], /Partial payment from Kojo Amoah/);
+  const updates = ops.filter(o => o.op === "update");
+  assert.equal(updates.length, 0, "a freshly appended student row is not updated in place");
 });
 
 test("runStudent appends student + activity", async () => {
@@ -1270,6 +1333,78 @@ test("write binds a type-ahead student combobox in the Payment and Issue dialogs
   assert.equal(doc.getElementById("dlgIssue").querySelector("[data-student]").hasListener("change"), true, "issue books re-render once a student is committed");
 });
 
+test("write.paymentForm.newStudentPayload validates the new-student block", () => {
+  const { cec } = loadWrite();
+  const r = cec.paymentForm.newStudentPayload({ name: "Kojo Amoah", class: "KG 1", gender: "male", books_fee: "1200", books_total: "8", exbooks: "2" });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.payload, { name: "Kojo Amoah", class: "KG 1", gender: "male", books_fee: 1200, books_total: 8, exbooks: 2 });
+  assert.equal(cec.paymentForm.newStudentPayload({ name: "", class: "KG 1", gender: "male", books_fee: 1, books_total: 1 }).ok, false, "missing name is rejected");
+  assert.equal(cec.paymentForm.newStudentPayload({ name: "Kojo", class: "KG 1", gender: "other", books_fee: 1, books_total: 1 }).ok, false, "gender outside male/female is rejected");
+  assert.equal(cec.paymentForm.newStudentPayload({ name: "Kojo", class: "KG 1", gender: "male", books_fee: -1, books_total: 1 }).ok, false, "a negative books_fee is rejected");
+});
+
+test("write.paymentForm.shouldOfferAddNew only offers a new student on a no-match payment query", () => {
+  const { cec } = loadWrite();
+  assert.equal(cec.paymentForm.shouldOfferAddNew(true, []), true, "payment dialog with no matches offers add-new");
+  assert.equal(cec.paymentForm.shouldOfferAddNew(true, [{ studentId: "S001" }]), false, "payment dialog with a match does not");
+  assert.equal(cec.paymentForm.shouldOfferAddNew(false, []), false, "the Issue dialog never offers add-new");
+});
+
+test("submitting dlgPayment for a NEW student posts the combined payment payload", async () => {
+  const { doc, fetchCalls, cec } = loadWrite();
+  const form = doc.ids.dlgPayment;
+  const set = (sel, value) => { form.querySelector(sel).value = value; };
+  set("[data-student]", "NEW");
+  set("[data-amount]", "100");
+  set("[data-method]", "Cash");
+  set("[data-new-name]", "Kojo Amoah");
+  set("[data-new-class]", "KG 1");
+  set("[data-new-gender]", "male");
+  set("[data-new-fee]", "1200");
+  set("[data-new-total]", "8");
+  set("[data-new-exbooks]", "2");
+  const handler = form.listeners.filter(l => l.type === "submit").map(l => l.fn).pop();
+  await handler({ preventDefault() {}, currentTarget: form });
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].url, "api/payment", "the combined write targets /api/payment");
+  assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
+    student_id: "NEW", amount: 100, method: "Cash",
+    new_student: { name: "Kojo Amoah", class: "KG 1", gender: "male", books_fee: 1200, books_total: 8, exbooks: 2 }
+  });
+  assert.equal(form.closed, true, "the modal closes after a good save");
+  assert.equal(doc.ids.toast.textContent, "Student registered and payment recorded.");
+  assert.equal(cec.refreshes, 1, "runAndRefresh repaints from the refreshed snapshot");
+});
+
+test("submitting dlgPayment with a NEW student missing a name is rejected before the network", async () => {
+  const { doc, fetchCalls } = loadWrite();
+  const form = doc.ids.dlgPayment;
+  const set = (sel, value) => { form.querySelector(sel).value = value; };
+  set("[data-student]", "NEW");
+  set("[data-amount]", "100");
+  set("[data-method]", "Cash");
+  set("[data-new-name]", "");
+  set("[data-new-class]", "KG 1");
+  set("[data-new-gender]", "male");
+  const handler = form.listeners.filter(l => l.type === "submit").map(l => l.fn).pop();
+  await handler({ preventDefault() {}, currentTarget: form });
+  assert.equal(fetchCalls.length, 0, "no network call for an incomplete new student");
+  assert.equal(form.children["[data-error]"].hidden, false);
+  assert.match(form.children["[data-error]"].textContent, /name/i);
+});
+
+test("index.html ships a NEW-student section inside #dlgPayment", () => {
+  const dlgStart = INDEX_HTML.indexOf('<dialog class="modal" id="dlgPayment">');
+  assert.notEqual(dlgStart, -1, "#dlgPayment exists");
+  const dlg = INDEX_HTML.slice(dlgStart, INDEX_HTML.indexOf("</dialog>", dlgStart));
+  for (const sel of ["data-new-name", "data-new-class", "data-new-gender", "data-new-fee", "data-new-total", "data-new-exbooks"]) {
+    assert.ok(dlg.indexOf(sel) !== -1, "dlgPayment has a [" + sel + "] control");
+  }
+  const section = dlg.slice(dlg.indexOf("data-new-section"));
+  assert.notEqual(section, "", "dlgPayment has a [data-new-section] slot");
+  assert.equal(/required/.test(section), false, "no native validation on the new-student fields: the dialog's own inline errors are the feedback path");
+});
+
 test("O2/AC6: a shape-valid year outside availableYears is rejected before the POST", () => {
   const { cec } = loadWrite();
   const draft = { target: "60", currency: "GH\u20b5", source: "live" };
@@ -1625,17 +1760,18 @@ const FIXTURE_BOOKS = [
   { bookId: "B3", subject: "Science", category: "Class 1", publisher: "C", stockQty: 0, lowStockThreshold: 3 }
 ];
 
-test("viewModels.issuedBookIds parses issue tokens per student", () => {
-  const activity = [
-    { type: "issue", description: "Books issued to Abena Mensah [B001,B002]" },
-    { type: "issue", description: "Books issued to Kwabena Yaw [B003]" },
-    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
-    { type: "issue", description: "Books issued to Abena Mensah" }
+test("viewModels.issuedReceived maps the Issued ledger per student id with summed quantities", () => {
+  const issued = [
+    { studentId: "S1", bookId: "B001", qty: 1 },
+    { studentId: "S1", bookId: "B002", qty: 1 },
+    { studentId: "S1", bookId: "B075", qty: 3 },
+    { studentId: "S1", bookId: "B075", qty: 4 },
+    { studentId: "S2", bookId: "B003", qty: 4 }
   ];
-  assert.deepEqual(vm.issuedBookIds(activity, { name: "Abena Mensah" }), ["B001", "B002"]);
-  assert.deepEqual(vm.issuedBookIds(activity, { name: "Kwabena Yaw" }), ["B003"]);
-  assert.deepEqual(vm.issuedBookIds(activity, { name: "No One" }), []);
-  assert.deepEqual(vm.issuedBookIds([], { name: "Abena Mensah" }), []);
+  assert.deepEqual(vm.issuedReceived(issued, { studentId: "S1" }), { B001: 1, B002: 1, B075: 7 });
+  assert.deepEqual(vm.issuedReceived(issued, { studentId: "S2" }), { B003: 4 });
+  assert.deepEqual(vm.issuedReceived(issued, { studentId: "S9" }), {});
+  assert.deepEqual(vm.issuedReceived([], { studentId: "S1" }), {});
 });
 
 test("viewModels.issueEligibleBooks filters by class, any paid balance, stock, and issued", () => {
@@ -1648,8 +1784,8 @@ test("viewModels.issueEligibleBooks filters by class, any paid balance, stock, a
     { bookId: "B5", category: "KG 1", price: 60, stockQty: 5, publisher: "Exercise Book" },
     { bookId: "B6", category: "KG 1", price: 60, stockQty: 5, publisher: "GES" }
   ];
-  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B6]" }];
-  const got = vm.issueEligibleBooks(books, student, activity);
+  const issued = [{ studentId: "S1", bookId: "B6", qty: 1 }];
+  const got = vm.issueEligibleBooks(books, student, issued);
   assert.deepEqual(got.map(b => b.bookId), ["B1", "B2"], "a book above the paid balance is still offerable once the student has paid anything");
 });
 
@@ -1660,15 +1796,21 @@ test("viewModels.issueEligibleBooks returns empty for missing class or zero paid
   assert.deepEqual(vm.issueEligibleBooks([], { className: "KG 1", booksPaid: 200 }, []), []);
 });
 
-test("viewModels.issuedBookIds strips quantity suffixes from tokens", () => {
-  const activity = [
-    { type: "issue", description: "Books issued to Abena Mensah [B001,B075x5,B076x3]" },
-    { type: "issue", description: "Books issued to Abena Mensah [B077x2]" },
-    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
-    { type: "issue", description: "Books issued to Kwabena Yaw [B003x4]" }
+test("viewModels.issueEligibleBooks hides textbooks already in the Issued ledger even without Activity entries (live S025 bug)", () => {
+  const student = { studentId: "S025", name: "Harry Opoku Agyei", className: "BS6", booksPaid: 550 };
+  const books = [
+    { bookId: "67", subject: "English", category: "BS 6", publisher: "Golden Publication", price: 70, stockQty: 9 },
+    { bookId: "68", subject: "Mathematics", category: "BS 6", publisher: "Excellence Publication", price: 60, stockQty: 9 },
+    { bookId: "69", subject: "Science", category: "BS 6", publisher: "Excellence Publication", price: 60, stockQty: 9 },
+    { bookId: "70", subject: "Computing", category: "BS 6", publisher: "EBS Publication", price: 70, stockQty: 9 },
+    { bookId: "71", subject: "R. M. E", category: "BS 6", publisher: "Excellence Publication", price: 50, stockQty: 9 },
+    { bookId: "72", subject: "Twi", category: "BS 6", publisher: "Excellence Publication", price: 50, stockQty: 9 },
+    { bookId: "73", subject: "History", category: "BS 6", publisher: "Excellence Publication", price: 50, stockQty: 9 },
+    { bookId: "74", subject: "Creative Arts", category: "BS 6", publisher: "Excellence Publication", price: 60, stockQty: 9 }
   ];
-  assert.deepEqual(vm.issuedBookIds(activity, { name: "Abena Mensah" }), ["B001", "B075", "B076", "B077"]);
-  assert.deepEqual(vm.issuedBookIds(activity, { name: "Kwabena Yaw" }), ["B003"]);
+  const issued = ["67", "68", "69", "70", "71", "72", "73", "74"].map(bid => ({ studentId: "S025", bookId: bid, qty: 1 }));
+  assert.deepEqual(vm.issueEligibleBooks(books, student, issued), [], "all eight BS 6 textbooks are already in the Issued ledger for S025");
+  assert.deepEqual(vm.issueEligibleBooks(books, student, []).map(b => b.bookId), books.map(b => b.bookId), "without the Issued ledger the textbooks are hazardously offered again");
 });
 
 test("viewModels.issueEligibleExBooks returns per-size issues with qty and stock", () => {
@@ -1692,20 +1834,20 @@ test("viewModels.issueEligibleExBooks requires exbooks>0, class match, and hides
   assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 0 }, [], classFees), []);
   assert.deepEqual(vm.issueEligibleExBooks(books, { className: "BS 2", exbooks: 10, booksPaid: 12.5 }, [], classFees), []);
   assert.deepEqual(vm.issueEligibleExBooks(books, { className: "Nursery 1", exbooks: 10, booksPaid: 12.5 }, [], []), []);
-  const activity = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
-  assert.deepEqual(vm.issueEligibleExBooks(books, { name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 12.5 }, activity, classFees), []);
+  const issued = [{ studentId: "S1", bookId: "B075", qty: 5 }];
+  assert.deepEqual(vm.issueEligibleExBooks(books, { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 12.5 }, issued, classFees), []);
 });
 
 test("viewModels.issueEligibleExBooks offers the remaining qty and hides a met requirement", () => {
   const classFees = [{ className: "Nursery 1", fee: 300, exbooks: 10, sizes: { "A1 Small": 5 } }];
   const books = [{ bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }];
   const student = { studentId: "S1", name: "Ama", className: "Nursery 1", exbooks: 10, booksPaid: 12.5 };
-  const partial = [{ type: "issue", description: "Books issued to Ama [B075x3]" }];
+  const partial = [{ studentId: "S1", bookId: "B075", qty: 3 }];
   const got = vm.issueEligibleExBooks(books, student, partial, classFees);
   assert.equal(got.length, 1);
   assert.equal(got[0].qty, 2);
   assert.equal(got[0].required, 5);
-  const full = [{ type: "issue", description: "Books issued to Ama [B075x5]" }];
+  const full = [{ studentId: "S1", bookId: "B075", qty: 5 }];
   assert.deepEqual(vm.issueEligibleExBooks(books, student, full, classFees), []);
 });
 
@@ -1731,24 +1873,6 @@ test("viewModels.issueEligibleExBooks offers every in-stock size once the studen
   assert.deepEqual(vm.issueEligibleExBooks(books, Object.assign({}, base, { booksPaid: 5 }), [], classFees).map(x => x.book.bookId), allSizes);
 });
 
-test("viewModels.issuedBooks sums xN quantities across issue entries", () => {
-  const activity = [
-    { type: "issue", description: "Books issued to Abena Mensah [B001,B075x5,B076x3]" },
-    { type: "issue", description: "Books issued to Abena Mensah [B075x2]" },
-    { type: "payment", description: "Books issued to Abena Mensah [B999]" },
-    { type: "issue", description: "Books issued to Kwabena Yaw [B003x4]" }
-  ];
-  assert.deepEqual(vm.issuedBooks(activity, { name: "Abena Mensah" }), { B001: 1, B075: 7, B076: 3 });
-  assert.deepEqual(vm.issuedBooks(activity, { name: "Kwabena Yaw" }), { B003: 4 });
-  assert.deepEqual(vm.issuedBooks(activity, { name: "No One" }), {});
-  assert.deepEqual(vm.issuedBooks([], { name: "Abena Mensah" }), {});
-});
-
-test("viewModels.issuedBooks matches student name case-insensitively", () => {
-  const activity = [{ type: "issue", description: "Books issued to ABENA MENSAH [B001x2]" }];
-  assert.deepEqual(vm.issuedBooks(activity, { name: "abena mensah" }), { B001: 2 });
-});
-
 test("viewModels.studentCollection derives mode from books_total and exbooks columns", () => {
   const student = { studentId: "S1", className: "KG 1", booksPaid: 200, booksTotal: 6, exbooks: 0 };
   assert.equal(vm.studentCollection(student, [], [], []).mode, "Textbooks");
@@ -1767,8 +1891,12 @@ test("viewModels.studentCollection collected resolves textbook and exbook items 
     { bookId: "B079", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", price: 2.5, stockQty: 10 }
   ];
   const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 200, booksTotal: 6, exbooks: 20 };
-  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B001x1,B075x5,B999x2]" }];
-  const got = vm.studentCollection(student, books, [], activity);
+  const issued = [
+    { studentId: "S1", bookId: "B001", qty: 1 },
+    { studentId: "S1", bookId: "B075", qty: 5 },
+    { studentId: "S1", bookId: "B999", qty: 2 }
+  ];
+  const got = vm.studentCollection(student, books, [], issued);
   assert.deepEqual(got.collected.map(x => ({ id: x.book.bookId, qty: x.qty, kind: x.kind })), [
     { id: "B001", qty: 1, kind: "textbook" },
     { id: "B075", qty: 5, kind: "exbook" }
@@ -1794,8 +1922,8 @@ test("viewModels.studentCollection remaining excludes textbooks already collecte
     { bookId: "B1", subject: "Literacy", category: "KG 1", price: 70, stockQty: 5, publisher: "GES" },
     { bookId: "B6", subject: "Creative Arts", category: "KG 1", price: 60, stockQty: 5, publisher: "GES" }
   ];
-  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B1]" }];
-  const got = vm.studentCollection(student, books, [], activity);
+  const issued = [{ studentId: "S1", bookId: "B1", qty: 1 }];
+  const got = vm.studentCollection(student, books, [], issued);
   assert.deepEqual(got.remaining.map(x => x.book.bookId), ["B6"]);
 });
 
@@ -1806,8 +1934,8 @@ test("viewModels.studentCollection remaining subtracts collected exbook quantiti
     { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 },
     { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
-  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B075x2]" }];
-  const got = vm.studentCollection(student, books, classFees, activity);
+  const issued = [{ studentId: "S1", bookId: "B075", qty: 2 }];
+  const got = vm.studentCollection(student, books, classFees, issued);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), [
     { id: "B075", qty: 3, stockShort: false },
     { id: "B078", qty: 5, stockShort: false }
@@ -1822,8 +1950,11 @@ test("viewModels.studentCollection remaining drops a met size and flags a stock-
     { bookId: "B078", subject: "Writing Exercise Book D1", category: "D1 Small", publisher: "Exercise Book", stockQty: 3, price: 2.5 },
     { bookId: "B077", subject: "Writing Exercise Book C", category: "C Small", publisher: "Exercise Book", stockQty: 12, price: 2.5 }
   ];
-  const activity = [{ type: "issue", description: "Books issued to Abena Mensah [B075x5,B078x1]" }];
-  const got = vm.studentCollection(student, books, classFees, activity);
+  const issued = [
+    { studentId: "S1", bookId: "B075", qty: 5 },
+    { studentId: "S1", bookId: "B078", qty: 1 }
+  ];
+  const got = vm.studentCollection(student, books, classFees, issued);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, stockShort: x.stockShort })), [
     { id: "B078", qty: 4, stockShort: true },
     { id: "B077", qty: 5, stockShort: false }
@@ -1870,8 +2001,12 @@ test("viewModels.studentCollection real Nursery 2 sheet: students owed books sti
   assert.ok(rGot.remaining.length > 0, "a fully paid student is never 'All collected' while books remain owed");
 
   const andrew = Object.assign({}, base, { studentId: "S002", name: "Andrew Donkor", booksPaid: 250 });
-  const activity = [{ type: "issue", description: "Books issued to Andrew Donkor [14,75x5,76x5]" }];
-  const aGot = vm.studentCollection(andrew, books, classFees, activity);
+  const issued = [
+    { studentId: "S002", bookId: "14", qty: 1 },
+    { studentId: "S002", bookId: "75", qty: 5 },
+    { studentId: "S002", bookId: "76", qty: 5 }
+  ];
+  const aGot = vm.studentCollection(andrew, books, classFees, issued);
   assert.deepEqual(shape(aGot.remaining), {
     exbooks: [
       { id: "77", qty: 5, stockShort: true },
@@ -1915,10 +2050,10 @@ test("viewModels.studentCollection real BS 1 sheet: a student issued more than t
     { bookId: "81", subject: "Normal Ex. Book", category: "Exercise Book", publisher: "Exercise Book", price: 3, stockQty: 0 }
   ];
   const student = { studentId: "S009", name: "Samuel Sefa Antwi", className: "BS 1", booksPaid: 250, booksTotal: 8, exbooks: 15, status: "waiting" };
-  const activity = [
-    { type: "issue", description: "Books issued to Samuel Sefa Antwi [27,28,29,31,32,33,34,81x15]" }
-  ];
-  const got = vm.studentCollection(student, books, classFees, activity);
+  const issued = ["27", "28", "29", "31", "32", "33", "34"]
+    .map(bid => ({ studentId: "S009", bookId: bid, qty: 1 }))
+    .concat([{ studentId: "S009", bookId: "81", qty: 15 }]);
+  const got = vm.studentCollection(student, books, classFees, issued);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, kind: x.kind })), [
     { id: "30", qty: 1, kind: "textbook" }
   ]);
@@ -2510,8 +2645,11 @@ test("viewModels.exportIssued expands collected books with qty and kind", () => 
     { bookId: "B1", subject: "Maths", category: "JS 1", publisher: "A", price: 100, stockQty: 5, lowStockThreshold: 1 },
     { bookId: "B2", subject: "English", category: "JS 1", publisher: "B", price: 100, stockQty: 5, lowStockThreshold: 1 }
   ];
-  const activity = [{ type: "issue", description: "Books issued to Ama [B1,B2x2]" }];
-  const got = vm.exportIssued(students, books, [], activity);
+  const issued = [
+    { studentId: "S1", bookId: "B1", qty: 1 },
+    { studentId: "S1", bookId: "B2", qty: 2 }
+  ];
+  const got = vm.exportIssued(students, books, [], issued);
   assert.deepEqual(got.headers, ["Student ID", "Name", "Class", "Mode", "Book ID", "Title", "Category", "Qty", "Kind"]);
   assert.equal(got.rows.length, 2);
   assert.deepEqual(got.rows[0].slice(0, 4), ["S1", "Ama", "JS 1", "Textbooks"]);
@@ -2519,7 +2657,7 @@ test("viewModels.exportIssued expands collected books with qty and kind", () => 
   assert.deepEqual(got.rows[1].slice(4), ["B2", "English", "JS 1", 2, "textbook"]);
 });
 
-test("viewModels.exportIssued empty activity yields no rows", () => {
+test("viewModels.exportIssued empty ledger yields no rows", () => {
   const got = vm.exportIssued(FIXTURE_STUDENTS, FIXTURE_BOOKS, [], []);
   assert.equal(got.rows.length, 0);
 });

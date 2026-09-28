@@ -443,6 +443,19 @@
           <option value="MTN MoMo">MTN MoMo</option>
           <option value="Telecel">Telecel</option>
         </select></label>
+        <div class="new-student" data-new-section hidden>
+          <h4>New student</h4>
+          <label>Full name<input type="text" data-new-name placeholder="Enter the student's full name" autocomplete="off"></label>
+          <label>Class<select data-new-class><option value="">Select class…</option></select></label>
+          <label>Gender<select data-new-gender>
+            <option value="">Select…</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select></label>
+          <label>Books fee (GHS)<input type="number" data-new-fee min="0" step="0.01"></label>
+          <label>Books total<input type="number" data-new-total min="0" step="1"></label>
+          <label>Exercise books<input type="number" data-new-exbooks min="0" step="1"></label>
+        </div>
         <p class="modal-error" data-error hidden></p>
       </div>
       <div class="modal-foot">

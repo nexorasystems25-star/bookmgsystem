@@ -90,6 +90,30 @@
 
   root.configForm = { validate: validateConfigDraft, applyResult: applyConfigResult };
 
+  // Client-side validation for the inline NEW-student block of a combined payment. Mirrors
+  // api/_lib.validateStudentPayload, returning the raw `class` key the server expects.
+  function validateNewStudentPayload(newStudent) {
+    const n = newStudent || {};
+    const name = String(n.name || "").trim();
+    if (!name) return { ok: false, error: "Student name is required." };
+    const klass = String(n.class || "").trim();
+    if (!klass) return { ok: false, error: "Class is required." };
+    if (GENDERS.indexOf(n.gender) === -1) return { ok: false, error: "Select a gender." };
+    const fee = Number(n.books_fee);
+    const total = Number(n.books_total);
+    const exbooks = Number(n.exbooks || 0);
+    if (!(fee >= 0) || !(total >= 0) || !(exbooks >= 0)) return { ok: false, error: "Books fee, total and exercise books must be zero or more." };
+    return { ok: true, payload: { name: name, class: klass, gender: n.gender, books_fee: fee, books_total: total, exbooks: exbooks } };
+  }
+
+  // The payment combobox offers "＋ Add new student" when nothing matches; the Issue dialog
+  // never does (its students must already exist).
+  function shouldOfferAddNew(isPaymentDialog, matches) {
+    return isPaymentDialog && (matches || []).length === 0;
+  }
+
+  root.paymentForm = { newStudentPayload: validateNewStudentPayload, shouldOfferAddNew: shouldOfferAddNew };
+
   const dialogs = {
     payment: document.getElementById("dlgPayment"),
     student: document.getElementById("dlgStudent"),
@@ -156,6 +180,10 @@
     stockMode = "textbook";
   });
 
+  dialogs.payment.addEventListener("close", () => {
+    resetNewStudent(dialogs.payment);
+  });
+
   async function populate(name) {
     if (name === "config") {
       const data = await root.getAllData();
@@ -175,11 +203,19 @@
     }
     if (name === "payment") {
       paymentStudents = opts.students;
+      studentBooks = opts.books;
+      studentFees = opts.classFees;
       const studentSel = dialogs.payment.querySelector("[data-student]");
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
         .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
         .join("");
+      const newClassSel = dialogs.payment.querySelector("[data-new-class]");
+      const cats = root.viewModels.bookCategories(opts.books);
+      newClassSel.innerHTML = '<option value="">Select class…</option>' + cats
+        .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, opts.books, opts.classFees)) + "</option>")
+        .join("");
       resetStudentCombo(dialogs.payment);
+      resetNewStudent(dialogs.payment);
     }
     if (name === "issue") {
       issueOpts = opts;
@@ -212,8 +248,8 @@
       box.innerHTML = '<p class="empty-note">Select a student to see their available books.</p>';
       return;
     }
-    const textbooks = root.viewModels.issueEligibleBooks(issueOpts.books, student, issueOpts.activity);
-    const exbooks = root.viewModels.issueEligibleExBooks(issueOpts.books, student, issueOpts.activity, issueOpts.classFees);
+    const textbooks = root.viewModels.issueEligibleBooks(issueOpts.books, student, issueOpts.issued);
+    const exbooks = root.viewModels.issueEligibleExBooks(issueOpts.books, student, issueOpts.issued, issueOpts.classFees);
     if (!textbooks.length && !exbooks.length) {
       box.innerHTML = '<p class="empty-note">No books available for ' + esc(student.name) + " right now.</p>";
       return;
@@ -312,6 +348,10 @@
     });
   });
 
+  dialogs.payment.querySelector("[data-new-class]").addEventListener("change", () => {
+    refreshNewStudentTotals(dialogs.payment);
+  });
+
   dialogs.payment.addEventListener("submit", async e => {
     e.preventDefault();
     const dlg = e.currentTarget;
@@ -321,12 +361,25 @@
     if (METHODS.indexOf(method) === -1) return showError(dlg, "Select a payment method.");
     const studentId = readValue(dlg, "[data-student]");
     if (!studentId) return showError(dlg, "Select a student.");
+    const payload = { student_id: studentId, amount: amount, method: method };
+    if (studentId === "NEW") {
+      const checked = validateNewStudentPayload({
+        name: readValue(dlg, "[data-new-name]"),
+        class: readValue(dlg, "[data-new-class]"),
+        gender: readValue(dlg, "[data-new-gender]"),
+        books_fee: readValue(dlg, "[data-new-fee]"),
+        books_total: readValue(dlg, "[data-new-total]"),
+        exbooks: readValue(dlg, "[data-new-exbooks]")
+      });
+      if (!checked.ok) return showError(dlg, checked.error);
+      payload.new_student = checked.payload;
+    }
     const submit = dlg.querySelector("[data-submit]");
     submit.disabled = true;
     try {
-      await root.write.recordPayment({ student_id: studentId, amount, method });
+      await root.write.recordPayment(payload);
       dlg.close();
-      showToast("Payment recorded.");
+      showToast(studentId === "NEW" ? "Student registered and payment recorded." : "Payment recorded.");
     } catch (err) {
       showError(dlg, err.message);
     } finally {
@@ -382,6 +435,11 @@
     if (!list || !comboStudents(dlg).length) return;
     const matches = filterStudents(comboStudents(dlg), query);
     if (!matches.length) {
+      if (shouldOfferAddNew(dlg === dialogs.payment, matches)) {
+        list.innerHTML = '<li class="combo-option" data-add-new><span class="combo-name">＋ Add new student</span></li>';
+        list.hidden = false;
+        return;
+      }
       list.innerHTML = '<li class="combo-empty">No students match.</li>';
       list.hidden = false;
       return;
@@ -397,12 +455,55 @@
     const input = dlg.querySelector("[data-student-input]");
     const hidden = dlg.querySelector("[data-student]");
     const list = dlg.querySelector("[data-student-list]");
+    if (option.dataset && option.dataset.addNew !== undefined) {
+      commitAddNewStudent(dlg);
+      return;
+    }
     const student = comboStudents(dlg).find(s => s.studentId === option.dataset.id);
     if (!student) return;
     hidden.value = student.studentId;
     if (input) input.value = student.name + " (" + student.className + ")";
     if (list) { list.innerHTML = ""; list.hidden = true; }
+    hideNewStudent(dlg);
     hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function refreshNewStudentTotals(dlg) {
+    if (!dlg.querySelector("[data-new-section]")) return;
+    const info = root.viewModels.classBookInfo(studentBooks, readValue(dlg, "[data-new-class]"), studentFees);
+    const field = (sel, val) => { const el = dlg.querySelector(sel); if (el) el.value = val; };
+    field("[data-new-total]", info.count > 0 ? String(info.count) : "");
+    field("[data-new-fee]", info.fee > 0 ? String(info.fee) : "");
+    field("[data-new-exbooks]", info.exbooks > 0 ? String(info.exbooks) : "");
+  }
+
+  function hideNewStudent(dlg) {
+    const section = dlg.querySelector("[data-new-section]");
+    if (!section) return;
+    section.hidden = true;
+    section.style.display = "none";
+  }
+
+  function commitAddNewStudent(dlg) {
+    const hidden = dlg.querySelector("[data-student]");
+    if (hidden) hidden.value = "NEW";
+    const input = dlg.querySelector("[data-student-input]");
+    if (input) input.value = "";
+    const list = dlg.querySelector("[data-student-list]");
+    if (list) { list.innerHTML = ""; list.hidden = true; }
+    const section = dlg.querySelector("[data-new-section]");
+    if (!section) return;
+    section.hidden = false;
+    section.style.display = "";
+    const name = dlg.querySelector("[data-new-name]");
+    if (name && name.focus) name.focus();
+  }
+
+  function resetNewStudent(dlg) {
+    const hidden = dlg.querySelector("[data-student]");
+    if (hidden) hidden.value = "";
+    hideNewStudent(dlg);
+    refreshNewStudentTotals(dlg);
   }
 
   function bindStudentCombo(name) {
@@ -417,7 +518,7 @@
       renderStudentList(dlg, input.value, -1);
     });
     input.addEventListener("keydown", e => {
-      const rows = list.hidden ? [] : list.querySelectorAll("[data-student-option]");
+      const rows = list.hidden ? [] : list.querySelectorAll("[data-student-option],[data-add-new]");
       if (e.key === "ArrowDown") {
         e.preventDefault();
         if (list.hidden) {
@@ -448,7 +549,7 @@
       }
     });
     list.addEventListener("mousedown", e => {
-      const option = e.target && e.target.closest ? e.target.closest("[data-student-option]") : null;
+      const option = e.target && e.target.closest ? e.target.closest("[data-student-option],[data-add-new]") : null;
       if (option) { e.preventDefault(); commitStudentOption(dlg, option); }
     });
   }

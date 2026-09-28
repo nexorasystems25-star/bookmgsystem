@@ -149,7 +149,16 @@ function validatePaymentPayload(raw) {
   if (!p.student_id || typeof p.student_id !== "string") return { ok: false, error: "student_id is required" };
   if (!(amount > 0)) return { ok: false, error: "amount must be a positive number" };
   if (METHODS.indexOf(p.method) === -1) return { ok: false, error: "method must be Cash, MTN MoMo, or Telecel" };
-  return { ok: true, payload: { student_id: p.student_id, amount: amount, method: p.method, date: p.date || todayISO() } };
+  const payload = { student_id: p.student_id, amount: amount, method: p.method, date: p.date || todayISO() };
+  if (p.new_student) {
+    if (p.student_id !== "NEW") return { ok: false, error: "new_student is only valid for a NEW student" };
+    const student = validateStudentPayload(p.new_student);
+    if (!student.ok) return student;
+    payload.newStudent = student.payload;
+  } else if (p.student_id === "NEW") {
+    return { ok: false, error: "student_id NEW requires a new_student block" };
+  }
+  return { ok: true, payload: payload };
 }
 
 function validateStudentPayload(raw) {
@@ -388,6 +397,27 @@ function issuedQuantityByStudent(rows, studentId) {
 }
 
 async function runPayment(client, spreadsheetId, payload) {
+  const payments = await client.sheetsGet(spreadsheetId, "Payments!A:A");
+  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
+  const paymentId = nextId(payments, "P");
+  const activityId = nextId(activity, "A");
+  if (payload.newStudent) {
+    const students = await client.sheetsGet(spreadsheetId, "Students!A:A");
+    const studentId = nextId(students, "S");
+    const ns = payload.newStudent;
+    const paid = payload.amount;
+    await client.sheetsAppend(spreadsheetId, "Students", [[
+      studentId, ns.name, ns.className, ns.gender, ns.academicYear,
+      String(ns.booksFee), String(paid), String(ns.booksTotal), String(ns.exbooks), recomputeStatus(paid, ns.booksFee)
+    ]]);
+    await client.sheetsAppend(spreadsheetId, "Payments", [[
+      paymentId, studentId, ns.name, ns.className, String(paid), payload.method, payload.date, "confirmed"
+    ]]);
+    await client.sheetsAppend(spreadsheetId, "Activity", [[
+      activityId, "payment", (paid >= ns.booksFee ? "Payment received from " : "Partial payment from ") + ns.name, String(paid), payload.date
+    ]]);
+    return { ok: true, row: { payment_id: paymentId, student_id: studentId, amount: paid, status: "confirmed" } };
+  }
   const students = await client.sheetsGet(spreadsheetId, "Students!A:J");
   const found = findRowIndex(students, "student_id", payload.student_id);
   if (!found) return { ok: false, error: "student_id not found" };
@@ -398,10 +428,6 @@ async function runPayment(client, spreadsheetId, payload) {
   const klass = row[2];
   const newPaid = paid + payload.amount;
   const status = recomputeStatus(newPaid, fee);
-  const payments = await client.sheetsGet(spreadsheetId, "Payments!A:A");
-  const activity = await client.sheetsGet(spreadsheetId, "Activity!A:A");
-  const paymentId = nextId(payments, "P");
-  const activityId = nextId(activity, "A");
   await client.sheetsAppend(spreadsheetId, "Payments", [[
     paymentId, payload.student_id, name, klass, String(payload.amount), payload.method, payload.date, "confirmed"
   ]]);
