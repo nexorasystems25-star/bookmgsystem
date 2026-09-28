@@ -350,7 +350,6 @@
 
   function studentCollection(student, books, classFees, activity) {
     const mode = registrationMode(student);
-    const paid = Number((student && student.booksPaid) || 0);
     const target = classKey(student && student.className);
     const issued = issuedBooks(activity, student);
     const catalog = {};
@@ -363,7 +362,6 @@
     }).filter(Boolean);
 
     const remaining = [];
-    let budget = paid - collectedCost(issued, books);
     if ((mode === "ExBooks" || mode === "Both") && target) {
       const feesRow = (classFees || []).find(f => classKey(f.className) === target);
       if (feesRow && feesRow.sizes) {
@@ -377,9 +375,6 @@
           const stock = Number(book.stockQty) || 0;
           const price = Number(book.price) || 0;
           if (!(price > 0)) return;
-          const cost = qty * price;
-          if (cost > budget) return;
-          budget -= cost;
           remaining.push({ book: book, qty: qty, kind: "exbook", stockShort: stock < qty });
         });
       }
@@ -389,9 +384,7 @@
         if (isExerciseBook(b)) return;
         if (classKey(b.category) !== target) return;
         if (issued[b.bookId]) return;
-        const price = Number(b.price) || 0;
-        if (!(price > 0) || price > budget) return;
-        budget -= price;
+        if (!(Number(b.price) > 0)) return;
         remaining.push({ book: b, qty: 1, kind: "textbook" });
       });
     }

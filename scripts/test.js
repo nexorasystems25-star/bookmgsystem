@@ -1747,7 +1747,7 @@ test("viewModels.studentCollection collected resolves textbook and exbook items 
   ]);
 });
 
-test("viewModels.studentCollection remaining keeps paid-gated class textbooks not yet collected", () => {
+test("viewModels.studentCollection remaining keeps every class textbook owed regardless of paid amount or stock", () => {
   const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 120, booksTotal: 6, exbooks: 0 };
   const books = [
     { bookId: "B1", subject: "Literacy", category: "KG 1", price: 70, stockQty: 5, publisher: "GES" },
@@ -1757,7 +1757,7 @@ test("viewModels.studentCollection remaining keeps paid-gated class textbooks no
     { bookId: "B5", subject: "Drawing", category: "KG 1", price: 60, stockQty: 5, publisher: "Exercise Book" }
   ];
   const got = vm.studentCollection(student, books, [], []);
-  assert.deepEqual(got.remaining.map(x => x.book.bookId), ["B1"]);
+  assert.deepEqual(got.remaining.map(x => x.book.bookId), ["B1", "B2", "B3"]);
 });
 
 test("viewModels.studentCollection remaining excludes textbooks already collected", () => {
@@ -1822,7 +1822,7 @@ test("viewModels.studentCollection real Nursery 2 sheet: students owed books sti
     textbooks: xs.filter(x => x.kind === "textbook").map(x => ({ id: x.book.bookId, qty: x.qty }))
   });
 
-  const richmond = Object.assign({ studentId: "S001", name: "Richmond Mensah", booksPaid: 300 }, base);
+  const richmond = Object.assign({}, base, { studentId: "S001", name: "Richmond Mensah", booksPaid: 300 });
   const rGot = vm.studentCollection(richmond, books, classFees, []);
   assert.deepEqual(shape(rGot.remaining), {
     exbooks: [
@@ -1841,7 +1841,7 @@ test("viewModels.studentCollection real Nursery 2 sheet: students owed books sti
   });
   assert.ok(rGot.remaining.length > 0, "a fully paid student is never 'All collected' while books remain owed");
 
-  const andrew = Object.assign({ studentId: "S002", name: "Andrew Donkor", booksPaid: 250 }, base);
+  const andrew = Object.assign({}, base, { studentId: "S002", name: "Andrew Donkor", booksPaid: 250 });
   const activity = [{ type: "issue", description: "Books issued to Andrew Donkor [14,75x5,76x5]" }];
   const aGot = vm.studentCollection(andrew, books, classFees, activity);
   assert.deepEqual(shape(aGot.remaining), {
@@ -1852,23 +1852,49 @@ test("viewModels.studentCollection real Nursery 2 sheet: students owed books sti
     textbooks: [
       { id: "10", qty: 1 },
       { id: "11", qty: 1 },
-      { id: "12", qty: 1 }
+      { id: "12", qty: 1 },
+      { id: "13", qty: 1 }
     ]
   });
   assert.ok(aGot.remaining.length > 0, "a partially collected student is never 'All collected' while books remain owed");
 });
 
-test("viewModels.studentCollection remaining spends the paid budget on exbooks before textbooks", () => {
+test("viewModels.studentCollection remaining lists the exbook size and class textbooks without any paid gate", () => {
   const classFees = [{ className: "KG 1", fee: 400, exbooks: 20, sizes: { "A1 Small": 5 } }];
-  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 80, booksTotal: 6, exbooks: 20 };
+  const student = { studentId: "S1", name: "Abena Mensah", className: "KG 1", booksPaid: 0, booksTotal: 6, exbooks: 20 };
   const books = [
     { bookId: "B001", subject: "Literacy", category: "KG 1", publisher: "GES", price: 70, stockQty: 5 },
     { bookId: "B075", subject: "Writing Exercise Book A1", category: "A1 Small", publisher: "Exercise Book", price: 2.5, stockQty: 12 }
   ];
   const got = vm.studentCollection(student, books, classFees, []);
   assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, kind: x.kind })), [
-    { id: "B075", qty: 5, kind: "exbook" }
+    { id: "B075", qty: 5, kind: "exbook" },
+    { id: "B001", qty: 1, kind: "textbook" }
   ]);
+});
+
+test("viewModels.studentCollection real BS 1 sheet: a student issued more than they paid still sees the missing textbook", () => {
+  const classFees = [{ className: "BS 1", fee: 550, exbooks: 15, sizes: { "Exercise Book": 15 } }];
+  const books = [
+    { bookId: "27", subject: "English", category: "BS 1", publisher: "Golden Publication", price: 70, stockQty: 0 },
+    { bookId: "28", subject: "Mathematics", category: "BS 1", publisher: "Excellence Publication", price: 60, stockQty: 0 },
+    { bookId: "29", subject: "Science", category: "BS 1", publisher: "Excellence Publication", price: 60, stockQty: 0 },
+    { bookId: "30", subject: "Computing", category: "BS 1", publisher: "EBS Publication", price: 60, stockQty: 0 },
+    { bookId: "31", subject: "R. M. E", category: "BS 1", publisher: "Excellence Publication", price: 50, stockQty: 0 },
+    { bookId: "32", subject: "Twi", category: "BS 1", publisher: "Excellence Publication", price: 50, stockQty: 0 },
+    { bookId: "33", subject: "History", category: "BS 1", publisher: "Excellence Publication", price: 50, stockQty: 0 },
+    { bookId: "34", subject: "Creative Arts", category: "BS 1", publisher: "Excellence Publication", price: 60, stockQty: 0 },
+    { bookId: "81", subject: "Normal Ex. Book", category: "Exercise Book", publisher: "Exercise Book", price: 3, stockQty: 0 }
+  ];
+  const student = { studentId: "S009", name: "Samuel Sefa Antwi", className: "BS 1", booksPaid: 250, booksTotal: 8, exbooks: 15, status: "waiting" };
+  const activity = [
+    { type: "issue", description: "Books issued to Samuel Sefa Antwi [27,28,29,31,32,33,34,81x15]" }
+  ];
+  const got = vm.studentCollection(student, books, classFees, activity);
+  assert.deepEqual(got.remaining.map(x => ({ id: x.book.bookId, qty: x.qty, kind: x.kind })), [
+    { id: "30", qty: 1, kind: "textbook" }
+  ]);
+  assert.ok(got.remaining.length > 0, "a student with books still owed is never 'All collected' even after being issued more than they have paid");
 });
 
 test("viewModels.pageForHash maps known hashes", () => {
