@@ -1446,6 +1446,16 @@ test("submitting dlgPayment in ExBooks mode posts books_fee 0 and books_total 0"
   assert.equal(body.new_student.exbooks, 2, "exercise books are untouched");
 });
 
+test("clicking an ExBooks chip applies the size class select and mode heading", () => {
+  const chip = stubEl("exbooks chip");
+  chip.dataset.mode = "exbooks";
+  const { doc } = loadWrite({ paymentModeChips: [chip] });
+  chip.listeners.find(l => l.type === "click").fn();
+  const classSel = doc.ids.dlgPayment.querySelector("[data-new-class]");
+  assert.ok(classSel.innerHTML.indexOf("Select size") !== -1, "the new-class select lists exercise sizes in ExBooks mode");
+  assert.equal(doc.ids.dlgPayment.querySelector("[data-new-heading]").textContent, "New student — ExBooks");
+});
+
 test("index.html ships a NEW-student section inside #dlgPayment", () => {
   const dlgStart = INDEX_HTML.indexOf('<dialog class="modal" id="dlgPayment">');
   assert.notEqual(dlgStart, -1, "#dlgPayment exists");

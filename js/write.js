@@ -210,11 +210,6 @@
       studentSel.innerHTML = '<option value="">Select student…</option>' + opts.students
         .map(s => '<option value="' + esc(s.studentId) + '">' + esc(s.name) + " (" + esc(s.className) + ")</option>")
         .join("");
-      const newClassSel = dialogs.payment.querySelector("[data-new-class]");
-      const cats = root.viewModels.bookCategories(opts.books);
-      newClassSel.innerHTML = '<option value="">Select class…</option>' + cats
-        .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, opts.books, opts.classFees)) + "</option>")
-        .join("");
       resetStudentCombo(dialogs.payment);
       resetNewStudent(dialogs.payment);
     }
@@ -330,6 +325,29 @@
     return classSel;
   }
 
+  function applyNewStudentMode() {
+    const ex = newStudentMode === "exbooks";
+    const txt = newStudentMode === "textbook";
+    const classSel = dialogs.payment.querySelector("[data-new-class]");
+    const cats = root.viewModels[ex ? "exerciseBookCategories" : "bookCategories"](studentBooks);
+    classSel.innerHTML = '<option value="">' + (ex ? "Select size…" : "Select class…") + "</option>" + cats
+      .map(c => '<option value="' + esc(c) + '">' + esc(root.viewModels.classOptionLabel(c, studentBooks, studentFees)) + "</option>")
+      .join("");
+    const heading = dialogs.payment.querySelector("[data-new-heading]");
+    if (heading) heading.textContent = ex ? "New student — ExBooks" : txt ? "New student — Textbooks" : "New student";
+    dialogs.payment.querySelectorAll("[data-new-mode-show]").forEach(row => {
+      const show = row.dataset.modeShow.split(",").indexOf(newStudentMode) !== -1;
+      row.hidden = !show;
+      row.style.display = show ? "" : "none";
+    });
+    dialogs.payment.querySelectorAll("[data-new-modes] [data-mode]").forEach(btn => {
+      const active = btn.dataset.mode === newStudentMode;
+      btn.classList.toggle("btn-primary", active);
+      btn.classList.toggle("btn-light", !active);
+    });
+    return classSel;
+  }
+
   function fillClassFields(className) {
     const info = root.viewModels.classBookInfo(studentBooks, className, studentFees);
     dialogs.student.querySelector("[data-total]").value = info.count > 0 ? String(info.count) : "";
@@ -356,6 +374,8 @@
   dialogs.payment.querySelectorAll("[data-new-modes] [data-mode]").forEach(btn => {
     btn.addEventListener("click", () => {
       newStudentMode = btn.dataset.mode === "textbook" || btn.dataset.mode === "exbooks" ? btn.dataset.mode : "both";
+      applyNewStudentMode();
+      refreshNewStudentTotals(dialogs.payment);
     });
   });
 
@@ -485,9 +505,10 @@
     if (!dlg.querySelector("[data-new-section]")) return;
     const info = root.viewModels.classBookInfo(studentBooks, readValue(dlg, "[data-new-class]"), studentFees);
     const field = (sel, val) => { const el = dlg.querySelector(sel); if (el) el.value = val; };
-    field("[data-new-total]", info.count > 0 ? String(info.count) : "");
-    field("[data-new-fee]", info.fee > 0 ? String(info.fee) : "");
-    field("[data-new-exbooks]", info.exbooks > 0 ? String(info.exbooks) : "");
+    const show = modeShow => modeShow.split(",").indexOf(newStudentMode) !== -1;
+    field("[data-new-total]", show("both,textbook") && info.count > 0 ? String(info.count) : "");
+    field("[data-new-fee]", show("both,textbook") && info.fee > 0 ? String(info.fee) : "");
+    field("[data-new-exbooks]", show("both,exbooks") && info.exbooks > 0 ? String(info.exbooks) : "");
   }
 
   function hideNewStudent(dlg) {
@@ -506,6 +527,9 @@
     if (list) { list.innerHTML = ""; list.hidden = true; }
     const section = dlg.querySelector("[data-new-section]");
     if (!section) return;
+    newStudentMode = "both";
+    applyNewStudentMode();
+    refreshNewStudentTotals(dlg);
     section.hidden = false;
     section.style.display = "";
     const name = dlg.querySelector("[data-new-name]");
@@ -515,6 +539,8 @@
   function resetNewStudent(dlg) {
     const hidden = dlg.querySelector("[data-student]");
     if (hidden) hidden.value = "";
+    newStudentMode = "both";
+    applyNewStudentMode();
     hideNewStudent(dlg);
     refreshNewStudentTotals(dlg);
   }
