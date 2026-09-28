@@ -444,7 +444,12 @@
           <option value="Telecel">Telecel</option>
         </select></label>
         <div class="new-student" data-new-section hidden>
-          <h4>New student</h4>
+          <h4 data-new-heading>New student</h4>
+          <div class="chip-row" data-new-modes>
+            <button type="button" class="btn btn-light" data-mode="textbook">Textbooks</button>
+            <button type="button" class="btn btn-light" data-mode="exbooks">ExBooks</button>
+            <button type="button" class="btn btn-primary" data-mode="both">Both</button>
+          </div>
           <label>Full name<input type="text" data-new-name placeholder="Enter the student's full name" autocomplete="off"></label>
           <label>Class<select data-new-class><option value="">Select class…</option></select></label>
           <label>Gender<select data-new-gender>
@@ -452,9 +457,9 @@
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select></label>
-          <label>Books fee (GHS)<input type="number" data-new-fee min="0" step="0.01"></label>
-          <label>Books total<input type="number" data-new-total min="0" step="1"></label>
-          <label>Exercise books<input type="number" data-new-exbooks min="0" step="1"></label>
+          <label data-new-mode-show="both,textbook">Books fee (GHS)<input type="number" data-new-fee min="0" step="0.01"></label>
+          <label data-new-mode-show="both,textbook">Books total<input type="number" data-new-total min="0" step="1"></label>
+          <label data-new-mode-show="both,exbooks">Exercise books<input type="number" data-new-exbooks min="0" step="1"></label>
         </div>
         <p class="modal-error" data-error hidden></p>
       </div>

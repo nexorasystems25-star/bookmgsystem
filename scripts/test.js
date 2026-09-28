@@ -1403,6 +1403,13 @@ test("index.html ships a NEW-student section inside #dlgPayment", () => {
   const section = dlg.slice(dlg.indexOf("data-new-section"));
   assert.notEqual(section, "", "dlgPayment has a [data-new-section] slot");
   assert.equal(/required/.test(section), false, "no native validation on the new-student fields: the dialog's own inline errors are the feedback path");
+  for (const m of ["textbook", "exbooks", "both"]) {
+    assert.ok(section.indexOf('data-mode="' + m + '"') !== -1, "chip-row offers a " + m + " mode");
+  }
+  assert.ok(section.indexOf("data-new-modes") !== -1, "the new-student section ships a mode chip-row");
+  assert.equal(section.split('data-new-mode-show="both,textbook"').length - 1, 2, "both Books fee and Books total are gated on Both+Textbooks");
+  assert.ok(section.indexOf("data-new-mode-show=\"both,exbooks\"") !== -1, "exercise-books label shows for Both+ExBooks");
+  assert.ok(section.indexOf("data-new-heading") !== -1, "the section heading is mode-tagged");
 });
 
 test("O2/AC6: a shape-valid year outside availableYears is rejected before the POST", () => {
