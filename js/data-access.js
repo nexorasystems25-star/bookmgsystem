@@ -141,17 +141,19 @@
 
   async function fetchOptions() {
     CEC.meta = await loadMeta();
-    const [studentsRows, booksRows, feesRows, activityRows] = await Promise.all([
+    const [studentsRows, booksRows, feesRows, activityRows, issuedRows] = await Promise.all([
       fetchTab("Students", "students.json"),
       fetchTab("Books", "books.json"),
       fetchClassFees(),
-      fetchTab("Activity", "activity.json")
+      fetchTab("Activity", "activity.json"),
+      fetchTab("Issued", "issued.json")
     ]);
     return {
       students: CEC.derive.normalizeStudents(studentsRows),
       books: CEC.derive.normalizeBooks(booksRows),
       classFees: CEC.derive.normalizeClassFees(feesRows),
-      activity: CEC.derive.normalizeActivity(activityRows)
+      activity: CEC.derive.normalizeActivity(activityRows),
+      issued: CEC.derive.normalizeIssued(issuedRows)
     };
   }
 

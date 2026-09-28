@@ -162,11 +162,11 @@
     return { headers, rows };
   }
 
-  function exportIssued(students, books, classFees, activity) {
+  function exportIssued(students, books, classFees, issuedList) {
     const headers = ["Student ID", "Name", "Class", "Mode", "Book ID", "Title", "Category", "Qty", "Kind"];
     const rows = [];
     (students || []).forEach(s => {
-      const coll = studentCollection(s, books, classFees, activity);
+      const coll = studentCollection(s, books, classFees, issuedList);
       (coll.collected || []).forEach(item => {
         rows.push([
           s.studentId,
@@ -247,44 +247,40 @@
       .replace(/^n(\d.*)$/, "nursery$1");
   }
 
-  function issuedBookIds(activity, student) {
-    const name = String((student && student.name) || "").trim().toLowerCase();
-    const ids = [];
-    (activity || []).forEach(a => {
-      if (String((a && a.type) || "").trim() !== "issue") return;
-      const m = String((a && a.description) || "").match(/^Books issued to (.+?)\s*\[([^\]]*)\]$/i);
-      if (!m) return;
-      if (String(m[1]).trim().toLowerCase() !== name) return;
-      String(m[2]).split(",").forEach(part => {
-        const id = part.trim().replace(/x\d+$/, "");
-        if (id && ids.indexOf(id) === -1) ids.push(id);
-      });
+  function issuedReceived(issued, student) {
+    const sid = String((student && student.studentId) || "");
+    const out = {};
+    (issued || []).forEach(i => {
+      if (String(i.studentId || "") !== sid) return;
+      const id = String(i.bookId || "");
+      if (!id) return;
+      out[id] = (out[id] || 0) + (Number(i.qty) || 0);
     });
-    return ids;
+    return out;
   }
 
-  function issueEligibleBooks(books, student, activity) {
+  function issueEligibleBooks(books, student, issuedList) {
     const target = classKey(student && student.className);
     const paid = Number((student && student.booksPaid) || 0);
     if (!target || !(paid > 0)) return [];
-    const issued = issuedBookIds(activity, student);
+    const issued = issuedReceived(issuedList, student);
     return (books || []).filter(b => {
       if (isExerciseBook(b)) return false;
       if (classKey(b.category) !== target) return false;
       if (!(Number(b.price) > 0)) return false;
       if (!(Number(b.stockQty) > 0)) return false;
-      return issued.indexOf(b.bookId) === -1;
+      return !(issued[b.bookId] > 0);
     });
   }
 
-  function issueEligibleExBooks(books, student, activity, classFees) {
+  function issueEligibleExBooks(books, student, issuedList, classFees) {
     if (!student || !(Number(student.exbooks) > 0)) return [];
     if (!(Number((student && student.booksPaid) || 0) > 0)) return [];
     const target = classKey(student.className);
     if (!target) return [];
     const feesRow = (classFees || []).find(f => classKey(f.className) === target);
     if (!feesRow || !feesRow.sizes) return [];
-    const received = issuedBooks(activity, student);
+    const received = issuedReceived(issuedList, student);
     const out = [];
     Object.keys(feesRow.sizes).forEach(sizeName => {
       const qty = Number(feesRow.sizes[sizeName] || 0);
@@ -302,27 +298,6 @@
     return out;
   }
 
-  function issuedBooks(activity, student) {
-    const name = String((student && student.name) || "").trim().toLowerCase();
-    const out = {};
-    (activity || []).forEach(a => {
-      if (String((a && a.type) || "").trim() !== "issue") return;
-      const m = String((a && a.description) || "").match(/^Books issued to (.+?)\s*\[([^\]]*)\]$/i);
-      if (!m) return;
-      if (String(m[1]).trim().toLowerCase() !== name) return;
-      String(m[2]).split(",").forEach(part => {
-        const token = part.trim();
-        if (!token) return;
-        const x = token.match(/^(.+?)x(\d+)$/);
-        const id = x ? x[1] : token;
-        const qty = x ? Number(x[2]) : 1;
-        if (!id) return;
-        out[id] = (out[id] || 0) + qty;
-      });
-    });
-    return out;
-  }
-
   function registrationMode(student) {
     const hasTextbooks = Number((student && student.booksTotal) || 0) > 0;
     const hasExbooks = Number((student && student.exbooks) || 0) > 0;
@@ -332,10 +307,10 @@
     return "None";
   }
 
-  function studentCollection(student, books, classFees, activity) {
+  function studentCollection(student, books, classFees, issuedList) {
     const mode = registrationMode(student);
     const target = classKey(student && student.className);
-    const issued = issuedBooks(activity, student);
+    const issued = issuedReceived(issuedList, student);
     const catalog = {};
     (books || []).forEach(b => { catalog[b.bookId] = b; });
 
@@ -546,8 +521,7 @@
     classBookInfo,
     classOptionLabel,
     isExerciseBook,
-    issuedBookIds,
-    issuedBooks,
+    issuedReceived,
     issueEligibleBooks,
     issueEligibleExBooks,
     studentCollection,

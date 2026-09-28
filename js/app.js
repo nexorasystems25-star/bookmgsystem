@@ -494,7 +494,7 @@
     document.getElementById("issueUncoveredCount").textContent = readiness.uncovered;
 
     const collectionRows = data.students
-      .map(s => Object.assign({ student: s }, CEC.viewModels.studentCollection(s, data.books, data.classFees, data.activity)))
+      .map(s => Object.assign({ student: s }, CEC.viewModels.studentCollection(s, data.books, data.classFees, data.issued)))
       .filter(r => r.collected.length > 0);
     document.getElementById("collectionBody").innerHTML = collectionRows.length
       ? collectionRows.map(r => `

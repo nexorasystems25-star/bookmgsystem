@@ -159,7 +159,9 @@ only returned when its id is absent from `issuedBookIds`.
 `renderIssueBooks` (write.js:132-150) renders two groups:
 
 - **Textbooks** - existing lines, unchanged, under an existing heading only when
-  non-empty (books within the paid amount that are in stock - current filter).
+  non-empty (class-package filter: `price > 0`, correct class, not yet issued,
+  `booksPaid > 0`, in stock — the old `price <= paid` affordability filter was
+  removed 2026-09-28).
 - **ExBooks** - new lines from `issueEligibleExBooks`, each a checkbox label
   `[data-exbook-check] value=<bookId> data-qty=<qty>` showing
   `A1 Small (Writing Lines) - need 5, stock 40` + `x5`.
@@ -199,9 +201,10 @@ needs no code change.
 1. RED: add assertions for
    - `normalizeClassFees` reads size columns into `sizes` (and ignores dashes /
      blanks / non-numeric).
-   - new `issueEligibleExBooks`: registered student (exbooks>0) returns lines
-     with correct qty; unregistered (exbooks=0) returns []; stock < qty excluded;
-     already-issued budget excluded; unknown class -> [].
+   - new `issueEligibleExBooks`: registered student (exbooks>0) and a paid amount
+     returns every in-stock size line (`booksPaid > 0`, whole-type budget removed
+     2026-09-28); unregistered (exbooks=0) or zero-paid returns []; stock < qty
+     excluded; already-issued excluded; unknown class -> [].
    - `issuedBookIds` parses `[B075x5,B076x5]` into `["B075","B076"]`; backward
      compat with `[B001,B002]`.
    - `validateIssuePayload` accepts `[{ book_id, qty }]` entries; rejects bad
